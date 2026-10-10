@@ -92,7 +92,7 @@ let connecting: Promise<void> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 let stableTimer: ReturnType<typeof setTimeout> | undefined;
 let runListener: ((runId: string, event: RunEvent) => void) | null = null;
-const welcomeListeners = new Set<() => void>();
+const welcomeListeners = new Set<(daemonVersion: string) => void>();
 let draftListener: ((runId: string, draft: SiteMapDraft) => void) | null = null;
 let taskRunner: ((order: TaskOrder) => Promise<ActionResult>) | null = null;
 let preferencesListener: ((preferences: Preferences) => void) | null = null;
@@ -113,7 +113,7 @@ export function onRunEvent(listener: (runId: string, event: RunEvent) => void): 
   runListener = listener;
 }
 
-export function onWelcome(listener: () => void): void {
+export function onWelcome(listener: (daemonVersion: string) => void): void {
   welcomeListeners.add(listener);
 }
 
@@ -603,7 +603,7 @@ async function handle(ws: WebSocket, raw: string, attempt: Attempt): Promise<voi
         error: undefined,
         lastChangeAt: Date.now(),
       });
-      for (const listener of welcomeListeners) listener();
+      for (const listener of welcomeListeners) listener(frame.daemonVersion);
       return;
     }
 

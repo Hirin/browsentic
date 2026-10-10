@@ -22,6 +22,7 @@ import { serveHandsFree } from '@/lib/bridge/hands-free';
 import { endHandsFree } from '@/lib/bridge/panel-view';
 import { serveLaunchers } from '@/lib/bridge/launchers';
 import { servePreferences } from '@/lib/bridge/preferences';
+import { serveExtensionUpdates } from '@/lib/bridge/extension-update';
 import { isAgentKind } from '@/lib/agents/catalog';
 import { isPreferenceChange } from '@/lib/settings/preferences';
 import {
@@ -214,6 +215,7 @@ export default defineBackground(() => {
   serveToast();
   serveHandsFree();
   servePreferences();
+  serveExtensionUpdates();
   void syncRail();
 
   onWelcome(() => {

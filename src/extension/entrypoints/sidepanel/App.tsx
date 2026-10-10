@@ -26,6 +26,7 @@ import { SiteMapReview } from '@/extension/components/site-map-review';
 import { SkillsPanel } from '@/extension/components/skills-panel';
 import { StarBadge } from '@/extension/components/star-badge';
 import { TaskPanel } from '@/extension/components/task-panel';
+import { UpdatePill } from '@/extension/components/update-pill';
 import type { TaskSeed } from '@/extension/components/task-editor';
 import { StatusPill, describeStatus } from '@/extension/components/status-pill';
 import { Button } from '@/extension/components/ui/button';
@@ -49,6 +50,7 @@ import { useStoredSessions } from '@/lib/bridge/use-stored-sessions';
 import { useStoredSkills } from '@/lib/bridge/use-stored-skills';
 import { useStoredTasks } from '@/lib/bridge/use-stored-tasks';
 import { useVoiceComposer } from '@/lib/bridge/use-voice-composer';
+import { useWaitingUpdate } from '@/lib/bridge/use-waiting-update';
 import { useHandsFreeSupported, useVoiceEnabled } from '@/lib/bridge/use-speech';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +65,7 @@ export default function App() {
   const daemon = useDaemonState();
   const run = useRun();
   const star = useStarNudge(run.completed, run.sessionId, run.running);
+  const update = useWaitingUpdate();
   const [voiceEnabled, setVoiceEnabled] = useVoiceEnabled();
   const [actionCues, setActionCues] = useActionCues();
   const handsFree = useHandsFreeSupported();
@@ -471,6 +474,9 @@ export default function App() {
 
       {tab === 'chat' && (
         <footer className="shrink-0 border-t border-line p-3">
+          {update.version && !run.running && (
+            <UpdatePill version={update.version} onUpdate={update.restart} onLater={update.later} />
+          )}
           {blockedHere && <BlockedSiteNote pattern={blockedHere} />}
           {run.toolOffer && (
             <KeepToolPrompt

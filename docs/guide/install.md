@@ -123,11 +123,11 @@ detail.
 
 | What | How it updates |
 | --- | --- |
-| The extension from the Chrome Web Store or Edge Add-ons | On its own, when the browser checks (every few hours). **Update** at `chrome://extensions` (`edge://extensions` in Edge), with Developer mode on, checks now |
-| The Firefox add-on | On its own, about once a day. `about:addons` → the gear → **Check for Updates** checks now |
+| The extension from the Chrome Web Store or Edge Add-ons | The browser downloads it when it checks (every few hours), or as soon as the Bridge is newer than the extension; then the side panel says the new version is ready above the prompt; press **Update**. A browser restart installs it too |
+| The Firefox add-on | Firefox downloads it about once a day, or as soon as the Bridge is newer; then the side panel says the new version is ready above the prompt; press **Update**. `about:addons` → the gear → **Check for Updates** checks now |
 | Browsentic Bridge, from an app | The app offers each release on its Overview tab; one press updates the app and the Bridge |
 | Browsentic Bridge, from `npx` | `npx browsentic@latest update` |
-| An unpacked copy | `browsentic update` rewrites the folder in place; press ↻ on its card |
+| An unpacked copy | `browsentic update` rewrites the folder in place; press **Update** in the side panel, or ↻ on its card |
 
 The extension and the Bridge do not have to be the same version. A store copy can update before or
 after the Bridge does, and they go on working: Browsentic Bridge 0.8 works with the extension from
@@ -168,8 +168,9 @@ yet, Mozilla is still signing that version; it appears within minutes, occasiona
 
 **2. Enter the pairing code** in the popup and press **Connect**.
 
-Firefox checks for a newer signed build about once a day and updates itself; there is no ↻ step and
-nothing to reload.
+Firefox checks for a newer signed build about once a day, and sooner once the Bridge is newer. When
+it has one, the side panel says so above the prompt; press **Update**, or let the next Firefox start
+install it. There is no ↻ step.
 
 Nine tools that need Chrome's debugger (the trusted click, the captcha, diagnostics and page-code
 tools) do not exist on Firefox, and the agent there is not offered them. [Limits](limits.md) has
