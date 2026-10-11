@@ -577,14 +577,18 @@ export async function startDaemon({ version, idleExit = true, android = androidO
     if (!source.speaks(ANDROID_PROTOCOL)) {
       return answer(failure('UNSUPPORTED', `Android needs an extension that speaks protocol ${ANDROID_PROTOCOL}.`));
     }
+    const broke = (error: unknown) => {
+      log(`phone ${request.t} failed in the Bridge`, error);
+      answer(failure('BRIDGE_ERROR', error instanceof Error ? error.message : String(error)));
+    };
     if (request.t === 'phoneLaunch') {
-      void android.launch(request.serial, request.url).then((result) => source.send({ t: 'androidInfo', id: request.id, result }));
+      void android.launch(request.serial, request.url).then((result) => source.send({ t: 'androidInfo', id: request.id, result }), broke);
     } else if (request.t === 'phoneOpen') {
-      void android.open(source, request.serial).then((result) => source.send({ t: 'phoneOpened', id: request.id, result }));
+      void android.open(source, request.serial).then((result) => source.send({ t: 'phoneOpened', id: request.id, result }), broke);
     } else if (request.t === 'cdp') {
-      void android.command(source, request).then((result) => source.send({ t: 'cdpResult', id: request.id, result }));
+      void android.command(source, request).catch(broke);
     } else {
-      void android.close(source, request.serial);
+      void android.close(source, request.serial).catch(broke);
     }
   }
 

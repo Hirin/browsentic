@@ -101,6 +101,22 @@ describe('asking the daemon', () => {
     ]);
   });
 
+  test('Android, from a Bridge that speaks it, and refused at once by one too old to answer', async () => {
+    const status = (protocolVersion: number) => ({ connected: true, daemonVersion: '0.8.1', protocolVersion, port, manifestInSync: true, connectedBrowsers: 1, pairedBrowsers: 1, pairingPending: false });
+    const state = { enabled: true, ready: false, adb: { found: false }, devices: [] };
+    let speaks = 23;
+    answer = (request) => {
+      const { id } = request;
+      if (request.op === 'status') return { id, op: 'status', status: status(speaks) };
+      if (request.op === 'android') return { id, op: 'android', result: { ok: true, data: state } };
+      return null;
+    };
+    expect(await bridge.android({ peek: true })).toEqual({ ok: true, data: state });
+    speaks = 22;
+    expect(await bridge.android({ peek: true })).toMatchObject({ ok: false, error: { code: 'UNSUPPORTED' } });
+    expect(received.map(({ op }) => op)).toEqual(['status', 'android', 'status']);
+  });
+
   test('an action its caller stops waiting for is cancelled with the daemon, under the same id', async () => {
     const abandoned = new AbortController();
     const pending = bridge.invoke('page.submitForm', {}, abandoned.signal);

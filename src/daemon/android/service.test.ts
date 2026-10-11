@@ -15,7 +15,8 @@ const SOCKET_LINE = '0000000000000000: 00000002 00000000 00010000 0001 01 50526 
 class MemoryAdb implements AdbServer {
   running = true;
   list = fixture('devices-emulator.txt');
-  facts = fixture('facts-chrome-open.txt');
+  /** Null is a phone that does not answer in time. */
+  facts: string | null = fixture('facts-chrome-open.txt');
   readonly shells: string[] = [];
   trackers = 0;
   private onList?: (list: string) => void;
@@ -41,9 +42,12 @@ class MemoryAdb implements AdbServer {
 
   async shell(_serial: string, command: string): Promise<string> {
     this.shells.push(command);
-    if (command === FACTS_COMMAND) return this.facts;
+    if (command === FACTS_COMMAND) {
+      if (this.facts === null) throw new AdbServerError('TIMEOUT', 'adb did not answer within 5000 ms');
+      return this.facts;
+    }
     if (command.startsWith('am start -n') || command.includes('-n com.android.chrome/')) this.facts = fixture('facts-chrome-open.txt');
-    if (command.startsWith('grep')) return this.facts.includes('@chrome_devtools_remote') ? SOCKET_LINE : '';
+    if (command.startsWith('grep')) return this.facts?.includes('@chrome_devtools_remote') ? SOCKET_LINE : '';
     return '';
   }
 
@@ -185,6 +189,21 @@ describe('the Bridge\'s view of the phones', () => {
     expect(deps.locate).toHaveBeenCalledTimes(2);
   });
 
+  test('letting go while the watch is still starting leaves nothing tracking, so a later look reads the phone again', async () => {
+    start();
+    let answer: (() => void) | undefined;
+    adb.version = () => new Promise((resolve) => (answer = () => resolve(41)));
+    const release = android.watch(() => {});
+    await until(() => answer !== undefined);
+    release();
+    answer?.();
+    await android.state();
+    expect([adb.trackers, android.peek()]).toEqual([0, null]);
+
+    adb.facts = fixture('facts-chrome-closed.txt');
+    expect((await android.state()).problem?.code).toBe('CHROME_NOT_RUNNING');
+  });
+
   test('when adb\'s server goes away while watched, it watches again', async () => {
     vi.useFakeTimers();
     start();
@@ -245,6 +264,15 @@ describe('opening Chrome on the phone', () => {
     adb.facts = fixture('facts-chrome-open.txt').replace(/(@@browsentic:chrome\n)(package:[^\n]*\n)+/, '$1');
     await android.launch('emulator-5554');
     expect(adb.shells).toContain(INSTALL_CHROME_COMMAND);
+  });
+
+  test('a phone that does not answer, or is still starting, is refused rather than sent to the Play Store', async () => {
+    start();
+    adb.facts = null;
+    expect(await android.launch('emulator-5554')).toMatchObject({ ok: false, error: { code: 'DEVICE_OFFLINE' } });
+    adb.facts = fixture('facts-chrome-open.txt').replace('@@browsentic:booted\n1\n', '@@browsentic:booted\n').replace(/(@@browsentic:chrome\n)(package:[^\n]*\n)+/, '$1');
+    expect(await android.launch('emulator-5554')).toMatchObject({ ok: false, error: { code: 'DEVICE_BOOTING' } });
+    expect(adb.shells.filter((command) => command.startsWith('am start'))).toEqual([]);
   });
 
   test('a phone that is not connected, or not ready, is refused with its reason', async () => {

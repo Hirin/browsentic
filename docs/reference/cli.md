@@ -105,7 +105,9 @@ spelling still works and is undocumented.
 
 `android` takes `--json`: the state the apps read, with the setup steps as `guide`. Where the
 Bridge looks for adb, and the keys that name one or stop it using adb at all, are under
-[Android](../guide/configuration.md#android) in the configuration guide.
+[Android](../guide/configuration.md#android) in the configuration guide. A Bridge still running
+from before Android (protocol 22 or older) is not asked: both commands exit at once and say to
+run `browsentic restart`.
 
 ## MCP
 

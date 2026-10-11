@@ -16,7 +16,7 @@ type CdpResult = ActionResult<Record<string, unknown>>;
 
 export interface Relay {
   open(owner: PhoneOwner, serial: string): Promise<ActionResult<PhoneOpened>>;
-  command(owner: PhoneOwner, request: CdpRequest): Promise<CdpResult>;
+  command(owner: PhoneOwner, request: CdpRequest): Promise<void>;
   close(owner: PhoneOwner, serial: string): Promise<void>;
   release(owner: PhoneOwner): Promise<void>;
   stop(): Promise<void>;
@@ -41,7 +41,7 @@ const MAX_MESSAGE_BYTES = 256 * 1024 * 1024;
 const REAL_TARGET = /^[0-9A-F]{32}$/i;
 
 interface Call {
-  resolve(result: CdpResult): void;
+  settle(result: CdpResult): void;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -56,30 +56,45 @@ interface Session {
   nextId: number;
 }
 
+interface Opening {
+  owner: PhoneOwner;
+  abandoned: boolean;
+  result?: Promise<ActionResult<PhoneOpened>>;
+}
+
 export function startRelay({ server, state, onSession, host = '127.0.0.1', timeouts = TIMEOUTS }: RelayDeps): Relay {
   const sessions = new Map<string, Session>();
-  const opening = new Map<string, Promise<unknown>>();
+  const opening = new Map<string, Opening>();
+  let stopping = false;
 
   const announce = () => {
     const [current] = sessions.values();
     onSession(current && { serial: current.serial, since: current.since });
   };
 
-  function call(session: Session, method: string, params?: Record<string, unknown>, sessionId?: string, asked?: number): Promise<CdpResult> {
+  const abandon = (matches: (serial: string, attempt: Opening) => boolean) => {
+    for (const [serial, attempt] of opening) if (matches(serial, attempt)) attempt.abandoned = true;
+  };
+
+  const waitFor = (method: string, asked?: unknown): number =>
+    typeof asked === 'number' && asked > 0 ? Math.min(asked, LONGEST_COMMAND_MS) : SLOW_COMMANDS.has(method) ? timeouts.slow : timeouts.command;
+
+  /** `settle` runs as the answer is read, so an owner hears it in the order Chrome sent it among the events. */
+  function send(session: Session, request: Pick<CdpRequest, 'method' | 'params' | 'sessionId'>, timeoutMs: number, settle: (result: CdpResult) => void): void {
     if (sessions.get(session.serial) !== session || session.socket.readyState !== WebSocket.OPEN) {
-      return Promise.resolve(failure('PHONE_GONE', 'The phone disconnected.'));
+      return settle(failure('PHONE_GONE', 'The phone disconnected.'));
     }
     const id = session.nextId++;
-    const timeoutMs = asked ? Math.min(asked, LONGEST_COMMAND_MS) : SLOW_COMMANDS.has(method) ? timeouts.slow : timeouts.command;
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        session.calls.delete(id);
-        resolve(failure('TIMEOUT', `${method} got no answer from the phone within ${timeoutMs / 1000} s`));
-      }, timeoutMs);
-      session.calls.set(id, { resolve, timer });
-      session.socket.send(JSON.stringify({ id, method, params, sessionId }));
-    });
+    const timer = setTimeout(() => {
+      session.calls.delete(id);
+      settle(failure('TIMEOUT', `${request.method} got no answer from the phone within ${timeoutMs / 1000} s`));
+    }, timeoutMs);
+    session.calls.set(id, { settle, timer });
+    session.socket.send(JSON.stringify({ id, method: request.method, params: request.params, sessionId: request.sessionId }));
   }
+
+  const call = (session: Session, method: string, params?: Record<string, unknown>): Promise<CdpResult> =>
+    new Promise((resolve) => send(session, { method, params }, waitFor(method), resolve));
 
   function receive(session: Session, raw: WebSocket.RawData): void {
     let message: { id?: number; result?: Record<string, unknown>; error?: { message?: string }; method?: string; params?: Record<string, unknown>; sessionId?: string };
@@ -93,7 +108,7 @@ export function startRelay({ server, state, onSession, host = '127.0.0.1', timeo
       if (!waiting) return;
       session.calls.delete(message.id);
       clearTimeout(waiting.timer);
-      return waiting.resolve(message.error ? failure('CDP_ERROR', message.error.message ?? 'Chrome refused the command') : success(message.result ?? {}));
+      return waiting.settle(message.error ? failure('CDP_ERROR', message.error.message ?? 'Chrome refused the command') : success(message.result ?? {}));
     }
     if (!message.method || !session.owner.isOpen) return;
     if (message.method === 'Page.screencastFrame' && session.owner.bufferedAmount > FRAME_BACKLOG_BYTES) {
@@ -108,12 +123,10 @@ export function startRelay({ server, state, onSession, host = '127.0.0.1', timeo
     sessions.delete(session.serial);
     for (const waiting of session.calls.values()) {
       clearTimeout(waiting.timer);
-      waiting.resolve(failure('PHONE_GONE', 'The phone disconnected while this command was on its way.'));
+      waiting.settle(failure('PHONE_GONE', 'The phone disconnected while this command was on its way.'));
     }
     session.calls.clear();
-    session.socket.removeAllListeners();
-    session.socket.on('error', () => {});
-    session.socket.terminate();
+    hangUp(session.socket);
     await server.removeForward(session.serial, session.port).catch(() => {});
     if (tellOwner && session.owner.isOpen) session.owner.send({ t: 'phoneClosed', serial: session.serial, reason });
     log(`phone ${session.serial} session ended: ${reason}`);
@@ -133,7 +146,10 @@ export function startRelay({ server, state, onSession, host = '127.0.0.1', timeo
     const path = version.webSocketDebuggerUrl ? new URL(version.webSocketDebuggerUrl).pathname : '/devtools/browser';
     const socket = new WebSocket(`ws://${host}:${port}${path}`, { perMessageDeflate: false, maxPayload: MAX_MESSAGE_BYTES });
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Chrome on ${serial} did not accept the DevTools connection`)), timeouts.connect);
+      const timer = setTimeout(() => {
+        hangUp(socket);
+        reject(new Error(`Chrome on ${serial} did not accept the DevTools connection`));
+      }, timeouts.connect);
       socket.once('open', () => {
         clearTimeout(timer);
         resolve();
@@ -153,25 +169,26 @@ export function startRelay({ server, state, onSession, host = '127.0.0.1', timeo
       .filter((info) => info.type === 'page' && REAL_TARGET.test(info.targetId))
       .map(({ targetId, url, title }) => ({ targetId, url, title }));
     const device = (await state()).devices.find((each) => each.serial === session.serial);
-    if (!device) return failure('PHONE_GONE', 'The phone disconnected while the session was opening.');
+    if (!device || sessions.get(session.serial) !== session) return failure('PHONE_GONE', 'The phone disconnected while the session was opening.');
     return success({ device, targets, browserVersion: session.browserVersion });
   }
 
   async function open(owner: PhoneOwner, serial: string): Promise<ActionResult<PhoneOpened>> {
-    while (opening.has(serial)) await opening.get(serial);
+    while (opening.has(serial)) await opening.get(serial)?.result;
+    if (stopping) return failure('PHONE_GONE', 'Browsentic Bridge is stopping.');
     const held = sessions.get(serial);
     if (held && held.owner !== owner) return failure('NOT_OWNER', 'Another browser is driving this phone.');
     if (held) return opened(held);
-    const attempt = start(owner, serial);
+    const attempt: Opening = { owner, abandoned: false };
     opening.set(serial, attempt);
     try {
-      return await attempt;
+      return await (attempt.result = start(attempt, serial));
     } finally {
       opening.delete(serial);
     }
   }
 
-  async function start(owner: PhoneOwner, serial: string): Promise<ActionResult<PhoneOpened>> {
+  async function start(attempt: Opening, serial: string): Promise<ActionResult<PhoneOpened>> {
     const device = (await state()).devices.find((each) => each.serial === serial);
     if (!device) return failure('NO_DEVICE', `No phone "${serial}" is connected.`);
     if (device.state !== 'ready') return failure(device.problem?.code ?? 'DEVICE_OFFLINE', device.problem?.message ?? 'The phone is not ready.');
@@ -181,7 +198,11 @@ export function startRelay({ server, state, onSession, host = '127.0.0.1', timeo
     try {
       port = await server.forward(serial, DEVTOOLS_SOCKET);
       const { socket, browserVersion } = await connect(serial, port);
-      const session: Session = { serial, owner, port, socket, since: new Date().toISOString(), browserVersion, calls: new Map(), nextId: 1 };
+      if (attempt.abandoned || !attempt.owner.isOpen) {
+        hangUp(socket);
+        throw new Error('the browser that asked for it let go first');
+      }
+      const session: Session = { serial, owner: attempt.owner, port, socket, since: new Date().toISOString(), browserVersion, calls: new Map(), nextId: 1 };
       sessions.set(serial, session);
       socket.on('message', (raw) => receive(session, raw));
       socket.on('close', () => void lost(session));
@@ -201,29 +222,48 @@ export function startRelay({ server, state, onSession, host = '127.0.0.1', timeo
   return {
     open,
 
-    async command(owner, { serial, method, params, sessionId, timeoutMs }) {
+    async command(owner, request) {
+      const answer = (result: CdpResult) => owner.send({ t: 'cdpResult', id: request.id, result });
+      const { serial, method, params, timeoutMs } = request;
+      if (typeof method !== 'string' || !method) return answer(failure('INVALID_INPUT', 'A DevTools command needs a method.'));
       const session = sessions.get(serial);
-      if (!session) return failure('PHONE_GONE', 'No phone session is open. Switch Android on again.');
-      if (session.owner !== owner) return failure('NOT_OWNER', 'Another browser is driving this phone.');
+      if (!session) return answer(failure('PHONE_GONE', 'No phone session is open. Switch Android on again.'));
+      if (session.owner !== owner) return answer(failure('NOT_OWNER', 'Another browser is driving this phone.'));
       const started = Date.now();
-      const result = await call(session, method, params, sessionId, timeoutMs);
-      if (!isChatter(method, params)) log(`phone ${serial} ${method} ${result.ok ? 'ok' : result.error.code} in ${Date.now() - started} ms`);
-      return result;
+      await new Promise<void>((done) =>
+        send(session, request, waitFor(method, timeoutMs), (result) => {
+          answer(result);
+          if (!isChatter(method, params)) log(`phone ${serial} ${method} ${result.ok ? 'ok' : result.error.code} in ${Date.now() - started} ms`);
+          done();
+        }),
+      );
     },
 
     async close(owner, serial) {
+      abandon((opened, attempt) => opened === serial && attempt.owner === owner);
       const session = sessions.get(serial);
       if (session?.owner === owner) await teardown(session, 'closed', false);
     },
 
     async release(owner) {
+      abandon((_, attempt) => attempt.owner === owner);
       await Promise.all([...sessions.values()].filter((session) => session.owner === owner).map((session) => teardown(session, 'closed', false)));
     },
 
     async stop() {
+      stopping = true;
+      abandon(() => true);
       await Promise.all([...sessions.values()].map((session) => teardown(session, 'bridge-stopping', true)));
+      await Promise.allSettled([...opening.values()].map((attempt) => attempt.result));
     },
   };
+}
+
+/** A socket still connecting reports its own end as an error, which nothing else is left listening for. */
+function hangUp(socket: WebSocket): void {
+  socket.removeAllListeners();
+  socket.on('error', () => {});
+  socket.terminate();
 }
 
 /** Screencast acks and finger or pointer moves arrive many times a second; one line each would bury everything else in daemon.log. */

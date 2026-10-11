@@ -33,6 +33,8 @@ export class FakeAndroid implements Android {
   /** Every phone request that reached the Bridge's Android half, by the browser that sent it. */
   readonly asked: { owner: string; t: string; serial: string; method?: string }[] = [];
   readonly released: string[] = [];
+  /** Set to make every phone request fail inside the Bridge, as a bug there would. */
+  broken = false;
   private readonly listeners = new Set<(state: AndroidState) => void>();
 
   get watchers(): number {
@@ -54,22 +56,26 @@ export class FakeAndroid implements Android {
   }
 
   async launch(serial: string): Promise<ActionResult<AndroidState>> {
+    this.breakIfAsked();
     this.launched.push(serial);
     return success(this.current);
   }
 
   async open(owner: PhoneOwner, serial: string): Promise<ActionResult<PhoneOpened>> {
+    this.breakIfAsked();
     this.asked.push({ owner: owner.id, t: 'phoneOpen', serial });
     const device = this.current.devices.find((each) => each.serial === serial);
     return device ? success({ device, targets: [], browserVersion: 'Chrome/150.0.7871.186' }) : failure('NO_DEVICE', 'No such phone.');
   }
 
-  async command(owner: PhoneOwner, request: CdpRequest): Promise<ActionResult<Record<string, unknown>>> {
+  async command(owner: PhoneOwner, request: CdpRequest): Promise<void> {
+    this.breakIfAsked();
     this.asked.push({ owner: owner.id, t: 'cdp', serial: request.serial, method: request.method });
-    return success({ echoed: request.method });
+    owner.send({ t: 'cdpResult', id: request.id, result: success({ echoed: request.method }) });
   }
 
   async close(owner: PhoneOwner, serial: string): Promise<void> {
+    this.breakIfAsked();
     this.asked.push({ owner: owner.id, t: 'phoneClose', serial });
   }
 
@@ -79,6 +85,10 @@ export class FakeAndroid implements Android {
 
   async stop(): Promise<void> {
     this.listeners.clear();
+  }
+
+  private breakIfAsked(): void {
+    if (this.broken) throw new Error('the Android half broke');
   }
 
   change(next: AndroidState): void {

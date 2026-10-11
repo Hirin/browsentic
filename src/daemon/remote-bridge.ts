@@ -4,7 +4,7 @@ import { awaitMonitor } from '@/lib/actions/page/await-monitor';
 import { PICK_DEFAULT_TIMEOUT_MS, pickElement } from '@/lib/actions/page/pick-element';
 import { SOLVE_CAPTCHA_TIMEOUT_MS, solveCaptcha } from '@/lib/actions/page/solve-captcha';
 import { startMonitor } from '@/lib/actions/page/start-monitor';
-import { failure, type ActionResult } from '@/lib/actions/protocol';
+import { ANDROID_PROTOCOL, failure, type ActionResult } from '@/lib/actions/protocol';
 import type { AgentKind, AgentState } from '@/lib/agents/catalog';
 import type { AndroidState } from '@/lib/phone/types';
 import { AWAIT_DEFAULT_TIMEOUT_MS } from '@/lib/monitor/events';
@@ -73,7 +73,15 @@ export class RemoteBridge implements Bridge {
     throw new Error('The Browsentic daemon did not answer about its agent');
   }
 
+  /** A Bridge older than Android leaves the op unanswered, so it is asked its protocol first rather than waited on for a minute. */
   async android(request?: { launch?: string; url?: string; watch?: boolean; peek?: boolean }): Promise<ActionResult<AndroidState>> {
+    const { protocolVersion } = await this.status();
+    if (protocolVersion < ANDROID_PROTOCOL) {
+      return failure(
+        'UNSUPPORTED',
+        `The Browsentic Bridge that is running speaks protocol ${protocolVersion}, and Android needs ${ANDROID_PROTOCOL}. Run "browsentic restart" to start the one installed.`,
+      );
+    }
     const reply = await this.request({ id: randomUUID(), op: 'android', ...request });
     if (reply && 'op' in reply && reply.op === 'android') return reply.result;
     return failure('DAEMON_UNREACHABLE', 'The Browsentic daemon did not answer about Android');

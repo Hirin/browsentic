@@ -1,5 +1,5 @@
 import { failure, success, type ActionResult } from '@/lib/actions/protocol';
-import type { AndroidState, PhoneOpened } from '@/lib/phone/types';
+import type { AndroidProblemCode, AndroidState, PhoneOpened } from '@/lib/phone/types';
 import { androidSettings, readAgentConfig, type AndroidSettings } from '../agent/config';
 import { log } from '../log';
 import { locateAdb, startServer, type AdbFound } from './adb';
@@ -22,7 +22,8 @@ export interface Android {
   launch(serial: string, url?: string): Promise<ActionResult<AndroidState>>;
   /** A session with Chrome on the phone, owned by the browser that opened it; only that browser's commands reach it. */
   open(owner: PhoneOwner, serial: string): Promise<ActionResult<PhoneOpened>>;
-  command(owner: PhoneOwner, request: CdpRequest): Promise<ActionResult<Record<string, unknown>>>;
+  /** Answers the owner with a `cdpResult` itself, in the order Chrome sent it among the events. */
+  command(owner: PhoneOwner, request: CdpRequest): Promise<void>;
   close(owner: PhoneOwner, serial: string): Promise<void>;
   /** The owner went away: its sessions end without telling it. */
   release(owner: PhoneOwner): Promise<void>;
@@ -41,6 +42,8 @@ const REFRESH_MS = 5_000;
 const FACTS_TIMEOUT_MS = 5_000;
 const BROKEN_RECHECK_MS = 60_000;
 const RETRACK_MS = 2_000;
+/** A phone that did not answer, or is still starting, reads as one without Chrome, so `launch` acts only past these problems. */
+const LAUNCHABLE: ReadonlySet<AndroidProblemCode> = new Set(['CHROME_MISSING', 'CHROME_NOT_RUNNING', 'SCREEN_OFF']);
 
 export const ANDROID_OFF_STATE: AndroidState = judge({ enabled: false, platform: process.platform, devices: [] });
 
@@ -54,7 +57,7 @@ export function androidOff(): Android {
     },
     launch: async () => switchedOff(),
     open: async () => switchedOff(),
-    command: async () => switchedOff(),
+    command: async (owner, request) => owner.send({ t: 'cdpResult', id: request.id, result: switchedOff() }),
     close: async () => {},
     release: async () => {},
     stop: async () => {},
@@ -125,6 +128,7 @@ export function startAndroid(deps: AndroidDeps = liveAndroidDeps()): Android {
 
   async function startTracking(path: string): Promise<void> {
     await withServer(path, () => deps.server.version());
+    if (!watched()) return;
     const current: Tracker = { devices: null, stop: () => {} };
     tracker = current;
     current.stop = deps.server.track(
@@ -239,7 +243,7 @@ export function startAndroid(deps: AndroidDeps = liveAndroidDeps()): Android {
         const problem = before.devices.length ? undefined : before.problem;
         return failure(problem?.code ?? 'NO_DEVICE', problem?.message ?? `No phone "${serial}" is connected.`);
       }
-      if (device.state !== 'ready') {
+      if (device.state !== 'ready' || (device.problem && !LAUNCHABLE.has(device.problem.code))) {
         return failure(device.problem?.code ?? 'DEVICE_OFFLINE', device.problem?.message ?? 'The phone is not ready.');
       }
       try {

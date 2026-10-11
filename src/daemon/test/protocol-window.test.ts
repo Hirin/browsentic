@@ -36,6 +36,7 @@ afterEach(async () => {
   android.launched.length = 0;
   android.asked.length = 0;
   android.released.length = 0;
+  android.broken = false;
 });
 
 async function control(): Promise<RemoteBridge> {
@@ -161,6 +162,18 @@ describe('Android across the protocol window', () => {
     await browser.closed;
     await eventually(() => android.released.length > 0);
     expect(android.released).toEqual([store.installId]);
+  });
+
+  test('a phone request that fails inside the Bridge is still answered, and the Bridge stays up', async () => {
+    android.current = READY_PHONE;
+    const browser = await pair({ ...store, protocolVersion: ANDROID_PROTOCOL });
+    android.broken = true;
+    const broke = { ok: false, error: { code: 'BRIDGE_ERROR' } };
+    expect(await browser.ask({ t: 'phoneOpen', id: 'open-3', serial: 'emulator-5554' })).toMatchObject({ t: 'phoneOpened', result: broke });
+    expect(await browser.ask({ t: 'cdp', id: 'cdp-3', serial: 'emulator-5554', method: 'Runtime.evaluate' })).toMatchObject({ t: 'cdpResult', result: broke });
+    expect(await browser.ask({ t: 'phoneLaunch', id: 'launch-3', serial: 'emulator-5554' })).toMatchObject({ t: 'androidInfo', result: broke });
+    browser.tell({ t: 'phoneClose', id: 'close-3', serial: 'emulator-5554' });
+    expect((await (await control()).status()).connected).toBe(true);
   });
 
   test('a Firefox extension is not watched for phones, since its toggle is hidden', async () => {

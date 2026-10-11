@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { WebSocketServer, type WebSocket } from 'ws';
-import type { SocketFrame } from '@/lib/actions/protocol';
+import type { ActionResult, SocketFrame } from '@/lib/actions/protocol';
 import type { AndroidState } from '@/lib/phone/types';
 import { logPath } from '../lockfile';
-import { startRelay, type PhoneOwner, type Relay } from './relay';
+import { startRelay, type CdpRequest, type PhoneOwner, type Relay } from './relay';
 
 const SERIAL = 'emulator-5554';
 const PAGE = 'A1B2C3D4E5F60718293A4B5C6D7E8F90';
@@ -16,6 +16,10 @@ class FakeChrome {
   readonly origins: (string | undefined)[] = [];
   readonly commands: { method: string; params?: Record<string, unknown>; sessionId?: string }[] = [];
   readonly sockets: WebSocket[] = [];
+  /** How long the DevTools connection waits before Chrome takes it. */
+  upgradeDelayMs = 0;
+  /** A command that makes Chrome hang up instead of answering. */
+  hangUpOn?: string;
   private http!: Server;
 
   async listen(): Promise<number> {
@@ -30,7 +34,7 @@ class FakeChrome {
     });
     this.http.on('upgrade', (req: IncomingMessage, socket, head) => {
       this.origins.push(req.headers.origin);
-      wss.handleUpgrade(req, socket, head, (ws) => this.serve(ws));
+      setTimeout(() => wss.handleUpgrade(req, socket, head, (ws) => this.serve(ws)), this.upgradeDelayMs);
     });
     await new Promise<void>((resolve) => this.http.listen(0, '127.0.0.1', resolve));
     return (this.http.address() as { port: number }).port;
@@ -55,7 +59,8 @@ class FakeChrome {
       const { id, method, params, sessionId } = JSON.parse(String(raw));
       this.commands.push({ method, params, sessionId });
       const reply = (body: object) => ws.send(JSON.stringify({ id, ...body }));
-      if (method === 'Target.setDiscoverTargets') reply({ result: {} });
+      if (method === this.hangUpOn) ws.terminate();
+      else if (method === 'Target.setDiscoverTargets') reply({ result: {} });
       else if (method === 'Target.getTargets') {
         reply({
           result: {
@@ -67,7 +72,10 @@ class FakeChrome {
           },
         });
       } else if (method === 'Runtime.evaluate') reply({ result: { result: { type: 'string', value: 'Example' } } });
-      else if (method === 'Hang.forever') return;
+      else if (method === 'Page.navigate') {
+        reply({ result: { frameId: 'F' } });
+        ws.send(JSON.stringify({ method: 'Page.frameStartedLoading', params: { frameId: 'F' } }));
+      } else if (method === 'Hang.forever') return;
       else if (method !== 'Page.screencastFrameAck') reply({ error: { code: -32601, message: `'${method}' wasn't found` } });
     });
   }
@@ -83,6 +91,9 @@ class Owner implements PhoneOwner {
   }
   events(): string[] {
     return this.sent.flatMap((frame) => (frame.t === 'cdpEvent' ? [frame.method] : []));
+  }
+  answer(id: string): ActionResult | undefined {
+    return this.sent.flatMap((frame) => (frame.t === 'cdpResult' && frame.id === id ? [frame.result] : []))[0];
   }
 }
 
@@ -100,13 +111,10 @@ let forwards: { made: string[]; removed: number[] };
 let sessions: AndroidState['session'][];
 let relay: Relay;
 
-beforeEach(async () => {
-  chrome = new FakeChrome();
-  port = await chrome.listen();
-  state = READY;
-  forwards = { made: [], removed: [] };
-  sessions = [];
-  relay = startRelay({
+const TIMEOUTS = { connect: 1_000, command: 100, slow: 200 };
+
+function startTestRelay(timeouts = TIMEOUTS): Relay {
+  return startRelay({
     server: {
       forward: async (serial, remote) => {
         forwards.made.push(`${serial} ${remote}`);
@@ -118,14 +126,29 @@ beforeEach(async () => {
     },
     state: async () => state,
     onSession: (session) => sessions.push(session),
-    timeouts: { connect: 1_000, command: 100, slow: 200 },
+    timeouts,
   });
+}
+
+beforeEach(async () => {
+  chrome = new FakeChrome();
+  port = await chrome.listen();
+  state = READY;
+  forwards = { made: [], removed: [] };
+  sessions = [];
+  relay = startTestRelay();
 });
 
 afterEach(async () => {
   await relay.stop();
   await chrome.close();
 });
+
+/** Sends a command the way the Bridge does, and reads the answer the relay gave the owner. */
+async function ask(owner: Owner, request: CdpRequest): Promise<ActionResult | undefined> {
+  await relay.command(owner, request);
+  return owner.answer(request.id);
+}
 
 const until = async (done: () => boolean) => {
   for (let tries = 0; !done(); tries++) {
@@ -172,7 +195,7 @@ describe('opening a phone', () => {
     await relay.open(new Owner('chrome-1'), SERIAL);
     const other = new Owner('edge-1');
     expect(await relay.open(other, SERIAL)).toMatchObject({ ok: false, error: { code: 'NOT_OWNER' } });
-    expect(await relay.command(other, { t: 'cdp', id: 'x', serial: SERIAL, method: 'Runtime.evaluate' })).toMatchObject({
+    expect(await ask(other, { t: 'cdp', id: 'x', serial: SERIAL, method: 'Runtime.evaluate' })).toMatchObject({
       ok: false,
       error: { code: 'NOT_OWNER' },
     });
@@ -185,6 +208,67 @@ describe('opening a phone', () => {
     chrome = new FakeChrome();
     await chrome.listen();
   });
+
+  test('a Chrome too slow to take the connection is hung up on, not left to connect later', async () => {
+    await relay.stop();
+    relay = startTestRelay({ ...TIMEOUTS, connect: 100 });
+    chrome.upgradeDelayMs = 300;
+    expect(await relay.open(new Owner('chrome-1'), SERIAL)).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(chrome.sockets.filter((socket) => socket.readyState === socket.OPEN)).toEqual([]);
+  });
+
+  test('a Chrome that goes away while the session opens is no session at all', async () => {
+    chrome.hangUpOn = 'Target.setDiscoverTargets';
+    expect(await relay.open(new Owner('chrome-1'), SERIAL)).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
+    expect(forwards.removed).toEqual([port]);
+    expect(sessions.at(-1)).toBeUndefined();
+  });
+});
+
+describe('letting go while a phone is opening', () => {
+  beforeEach(() => {
+    chrome.upgradeDelayMs = 100;
+  });
+
+  /** Wrapped, so awaiting this waits for the forward and not for the open itself. */
+  const opening = async (owner: Owner) => {
+    const attempt = relay.open(owner, SERIAL);
+    await until(() => forwards.made.length === 1);
+    return { attempt };
+  };
+
+  test('a browser that goes away leaves nothing behind, and the next one can open the phone', async () => {
+    const leaving = new Owner('chrome-1');
+    const { attempt } = await opening(leaving);
+    await relay.release(leaving);
+    expect(await attempt).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
+    expect([forwards.removed, sessions]).toEqual([[port], []]);
+    expect(await relay.open(new Owner('chrome-2'), SERIAL)).toMatchObject({ ok: true });
+  });
+
+  test('switching Android off ends it there', async () => {
+    const owner = new Owner('chrome-1');
+    const { attempt } = await opening(owner);
+    await relay.close(owner, SERIAL);
+    expect(await attempt).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
+    expect(forwards.removed).toEqual([port]);
+  });
+
+  test('another browser switching Android off does not end it', async () => {
+    const owner = new Owner('chrome-1');
+    const { attempt } = await opening(owner);
+    await relay.close(new Owner('edge-1'), SERIAL);
+    expect(await attempt).toMatchObject({ ok: true });
+  });
+
+  test('the Bridge stopping waits for it, removes its forward, and opens nothing after', async () => {
+    const { attempt } = await opening(new Owner('chrome-1'));
+    await relay.stop();
+    expect(forwards.removed).toEqual([port]);
+    expect(await attempt).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
+    expect(await relay.open(new Owner('chrome-1'), SERIAL)).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
+  });
 });
 
 describe('commands and events', () => {
@@ -195,34 +279,47 @@ describe('commands and events', () => {
   });
 
   test('a command goes to the phone with its session id, and its answer comes back', async () => {
-    const result = await relay.command(owner, { t: 'cdp', id: 'f1', serial: SERIAL, method: 'Runtime.evaluate', params: { expression: 'document.title' }, sessionId: 'S1' });
+    const result = await ask(owner, { t: 'cdp', id: 'f1', serial: SERIAL, method: 'Runtime.evaluate', params: { expression: 'document.title' }, sessionId: 'S1' });
     expect(result).toEqual({ ok: true, data: { result: { type: 'string', value: 'Example' } } });
     expect(chrome.commands.at(-1)).toEqual({ method: 'Runtime.evaluate', params: { expression: 'document.title' }, sessionId: 'S1' });
   });
 
   test('a command can ask to wait longer than the default, for a page-side wait', async () => {
-    const asked = relay.command(owner, { t: 'cdp', id: 'f7', serial: SERIAL, method: 'Hang.forever', timeoutMs: 400 });
+    const asked = ask(owner, { t: 'cdp', id: 'f7', serial: SERIAL, method: 'Hang.forever', timeoutMs: 400 });
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(await Promise.race([asked, Promise.resolve('still waiting')])).toBe('still waiting');
     expect(await asked).toMatchObject({ ok: false, error: { code: 'TIMEOUT' } });
   });
 
   test('Chrome\'s refusal is CDP_ERROR in its own words, and silence is TIMEOUT', async () => {
-    expect(await relay.command(owner, { t: 'cdp', id: 'f2', serial: SERIAL, method: 'Nope.nope' })).toEqual({
+    expect(await ask(owner, { t: 'cdp', id: 'f2', serial: SERIAL, method: 'Nope.nope' })).toEqual({
       ok: false,
       error: { code: 'CDP_ERROR', message: "'Nope.nope' wasn't found" },
     });
-    expect(await relay.command(owner, { t: 'cdp', id: 'f3', serial: SERIAL, method: 'Hang.forever' })).toMatchObject({
+    expect(await ask(owner, { t: 'cdp', id: 'f3', serial: SERIAL, method: 'Hang.forever' })).toMatchObject({
       ok: false,
       error: { code: 'TIMEOUT' },
     });
   });
 
   test('a command for a phone with no session is PHONE_GONE', async () => {
-    expect(await relay.command(owner, { t: 'cdp', id: 'f4', serial: 'R5CT1234567', method: 'Runtime.evaluate' })).toMatchObject({
+    expect(await ask(owner, { t: 'cdp', id: 'f4', serial: 'R5CT1234567', method: 'Runtime.evaluate' })).toMatchObject({
       ok: false,
       error: { code: 'PHONE_GONE' },
     });
+  });
+
+  test('a command with no method is refused before it reaches the phone', async () => {
+    const sent = chrome.commands.length;
+    expect(await ask(owner, { t: 'cdp', id: 'f8', serial: SERIAL } as unknown as CdpRequest)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(chrome.commands).toHaveLength(sent);
+  });
+
+  test('an answer reaches the owner in the order Chrome sent it among the events', async () => {
+    owner.sent.length = 0;
+    await relay.command(owner, { t: 'cdp', id: 'f9', serial: SERIAL, method: 'Page.navigate', params: { url: 'https://example.com/b' } });
+    await until(() => owner.events().length === 1);
+    expect(owner.sent.map((frame) => (frame.t === 'cdpEvent' ? frame.method : frame.t))).toEqual(['cdpResult', 'Page.frameStartedLoading']);
   });
 
   test('every event reaches the owner, with the session it came from', async () => {
@@ -261,7 +358,7 @@ describe('when a session ends', () => {
   });
 
   test('Chrome going away fails the command in flight, tells the owner why, and removes the forward', async () => {
-    const pending = relay.command(owner, { t: 'cdp', id: 'g1', serial: SERIAL, method: 'Hang.forever' });
+    const pending = ask(owner, { t: 'cdp', id: 'g1', serial: SERIAL, method: 'Hang.forever' });
     await until(() => chrome.commands.some(({ method }) => method === 'Hang.forever'));
     chrome.hangUp();
     expect(await pending).toMatchObject({ ok: false, error: { code: 'PHONE_GONE' } });
