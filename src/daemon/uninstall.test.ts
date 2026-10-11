@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -67,6 +67,12 @@ describe('planning an uninstall', () => {
     expect(planUninstall().elsewhere).toEqual([]);
   });
 
+  test('on Windows the folder holding the Node this runs on is kept, since a running program cannot be deleted there', () => {
+    const runningOn = join(stateDir, 'runtime', 'node', 'node.exe');
+    const inUse = (platform: NodeJS.Platform) => planUninstall({ platform, runningOn }).removals.map((removal) => removal.inUse);
+    expect([inUse('win32'), inUse('darwin')]).toEqual([['runtime', undefined], [undefined, undefined]]);
+  });
+
   test('npx caches holding a copy are included', () => {
     const dir = npxEntry(join(homedir(), '.npm', '_npx'), 'f6', '0.6.0');
     expect(planUninstall().npx).toEqual([{ dir, version: '0.6.0', packages: ['browsentic@latest'], running: false }]);
@@ -103,6 +109,14 @@ describe('removing', () => {
     expect(existsSync(stateDir)).toBe(false);
   });
 
+  test('a folder reached through a link loses only the link, never what it points at', () => {
+    made(join(outside, 'build'));
+    writeFileSync(join(outside, 'build', 'manifest.json'), '{}');
+    symlinkSync(join(outside, 'build'), join(outside, 'extension'), 'junction');
+    const [extension] = removeAll([{ label: 'extension', path: join(outside, 'extension'), holds: '' }]);
+    expect([extension.removed, existsSync(join(outside, 'extension')), readdirSync(join(outside, 'build'))]).toEqual([true, false, ['manifest.json']]);
+  });
+
   test('a removal that fails is reported, not thrown, and the rest still happen', () => {
     made(outside);
     writeFileSync(join(outside, 'not-a-folder'), '');
@@ -111,6 +125,29 @@ describe('removing', () => {
       { label: 'state', path: stateDir, holds: '' },
     ]);
     expect([failed.removed, failed.error, removed.removed]).toEqual([false, expect.stringContaining('ENOTDIR'), true]);
+  });
+});
+
+describe('removing on Windows', () => {
+  test('the folder the running Node sits in stays, and everything around it goes', () => {
+    made(join(stateDir, 'runtime', 'node'), join(stateDir, 'sessions'));
+    writeFileSync(join(stateDir, 'config.json'), '{}');
+    const [state] = removeAll(planUninstall({ platform: 'win32', runningOn: join(stateDir, 'runtime', 'node', 'node.exe') }).removals);
+    expect([state.removed, state.kept, readdirSync(stateDir)]).toEqual([true, ['runtime'], ['runtime']]);
+  });
+
+  // A read-only folder stands in for a program Windows has open; Windows folders have no such mode.
+  test.skipIf(process.platform === 'win32')('an entry that will not go leaves the rest to be deleted, the pairing keys among them', () => {
+    made(join(stateDir, 'bin'));
+    writeFileSync(join(stateDir, 'bin', 'browsentic.exe'), '');
+    writeFileSync(join(stateDir, 'sessions.json'), '{}');
+    chmodSync(join(stateDir, 'bin'), 0o555);
+    try {
+      const [state] = removeAll(planUninstall().removals);
+      expect([state.removed, state.error, readdirSync(stateDir)]).toEqual([false, expect.stringContaining(join(stateDir, 'bin')), ['bin']]);
+    } finally {
+      chmodSync(join(stateDir, 'bin'), 0o755);
+    }
   });
 });
 
