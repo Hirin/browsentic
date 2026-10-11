@@ -77,7 +77,7 @@ Details are in [internals/guardrails.md](../internals/guardrails.md#spawn-contai
 
 Mistral Vibe, Grok Build, Cursor CLI, Qwen Code and OpenCode were built by reading each CLI and
 checking its flags, its containment and its error texts, but none has carried a whole conversation
-end to end yet, so the popup, the docs and the release notes mark them *beta*. In practice:
+end to end yet, so the agent picker, the docs and the release notes mark them *beta*. In practice:
 
 - a run that fails says why, with the command that fixes it, rather than hanging;
 - Vibe's replies arrive a message at a time rather than streaming, and it reports no token counts;

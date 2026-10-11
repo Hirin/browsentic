@@ -7,15 +7,14 @@ answer. It assumes you have [installed](install.md) and [paired](pair.md).
 
 ## Open the side panel
 
-Click the Browsentic toolbar icon and press **Open side panel**, or open it from Chrome's side
-panel menu. The popup is for setup (pairing, picking an agent, press-to-talk); the side panel is
-where you work.
+Click the Browsentic toolbar icon, or open it from Chrome's side panel menu. Clicking the icon again
+closes the panel. In Firefox the icon opens and closes the Browsentic sidebar.
 
 ## The panel, top to bottom
 
 | | |
 | --- | --- |
-| **Status pill** | Connection state. Click it to reopen the pairing form or switch agents without going back to the popup. |
+| **Status pill** | Connection state. Click it to open the pairing form and the agent switcher. |
 | **Sessions strip** | One row per tab that has a conversation: its live title, a pulsing dot while it is working, how many messages it holds. Collapses to a single line. See [Conversations](features/conversations.md). |
 | **Chat · History · Skills · Recordings · Schedules** | The five sections. Chat is where you talk; the others are covered in [Features](features/). |
 | **Timeline** | Every action as it happens, with what it targeted and what came back. |

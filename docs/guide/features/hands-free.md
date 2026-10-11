@@ -4,9 +4,8 @@ Hands-free mode replaces the side panel with a microphone on the page. You give 
 voice, and the panel's main controls are in a menu that opens when you hover over the mic.
 
 It works only in browsers that can turn speech into text: Chrome, Edge, and other Chromium browsers
-with a speech service behind them. Elsewhere there is no detach button, no
-`/hands-free`, no **Open hands-free** in the popup, no right-click item and no mic on the page (see
-[Which browsers](#which-browsers)).
+with a speech service behind them. Elsewhere there is no detach button, no `/hands-free`, no
+right-click item and no mic on the page (see [Which browsers](#which-browsers)).
 
 ---
 
@@ -17,7 +16,6 @@ Any of these turns it on:
 - the **detach** button in the side panel's header, just left of minimize
 - typing **`/hands-free`** in the composer (the `/` menu offers it once you type `/hand`, and
   `/hand-free` works too)
-- **Open hands-free** in the toolbar popup, beside **Open side panel**
 - **Open Browsentic (Hands Free)** when you right-click a page; while the mic is on, the item reads
   **Close Browsentic (Hands Free)** and turns it off
 - the **Start or stop hands-free** shortcut, **Alt+Shift+H** (**⌥⇧H** on a Mac) unless something
@@ -116,7 +114,7 @@ Browsentic offers hands-free mode only where speech recognition works:
 | **Chrome, Edge** | Offered |
 | **Firefox** | Never offered: it has no speech recognition, and no hidden page to listen from |
 | **Brave** | Never offered: it ships the speech API with no service behind it, so every attempt fails |
-| **Other Chromium browsers** | Offered until their speech service first fails without ever having transcribed a word. From then on the detach button, `/hands-free`, the popup button and the right-click item are gone, and a mic already on the page leaves with a note saying why |
+| **Other Chromium browsers** | Offered until their speech service first fails without ever having transcribed a word. From then on the detach button, `/hands-free` and the right-click item are gone, and a mic already on the page leaves with a note saying why |
 
 A browser whose speech service has transcribed even once keeps hands-free for good: a later failure
 there counts as a dropped connection, not a missing service. A browser that was written off can get

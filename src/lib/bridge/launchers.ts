@@ -3,7 +3,7 @@ import { HANDS_FREE_SHORTCUT, PANEL_SHORTCUT } from '@/lib/settings/shortcuts';
 import { CONTEXT_MENU_KEY, HANDS_FREE_ITEM, PANEL_ITEM, describeMenu, readContextMenuChoice } from './context-menu';
 import { HANDS_FREE_KEY, endHandsFree, readHandsFree, startHandsFree } from './panel-view';
 import { closePanels, onPanelPresence } from './run-port';
-import { closeSidebar, openSidePanel } from './side-panel';
+import { closeSidebar, openPanelFromToolbar, openSidePanel, toggleSidebar } from './side-panel';
 import { SPEECH_SERVICE_KEY, handsFreeSupported } from './speech-support';
 
 let panelOpen = false;
@@ -37,6 +37,9 @@ async function toggleHandsFree(): Promise<void> {
 }
 
 export function serveLaunchers(): void {
+  if (import.meta.env.FIREFOX) browser.browserAction.onClicked.addListener(() => void toggleSidebar());
+  else void openPanelFromToolbar().catch((error) => console.warn('[browsentic] toolbar button setup failed:', error));
+
   onPanelPresence((open) => {
     panelOpen = open;
     repaintMenu();

@@ -301,7 +301,7 @@ describe('readiness', () => {
   });
 
   // ANTHROPIC_ and GEMINI_ are auth types Qwen accepts, but sealEnv does not hand them to a run,
-  // so a popup that called this ready would be promising a login that cannot happen.
+  // so a picker that called this ready would be promising a login that cannot happen.
   test('a key the run would never be given does not count as configured', async () => {
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-test');
     expect((await problem())?.code).toBe('AGENT_NEEDS_PERMISSION');
@@ -318,7 +318,7 @@ describe('readiness', () => {
     expect(await problem()).toBeNull();
   });
 
-  // A popup that wrongly says "needs setup" blocks a working agent; the run's own hint catches the
+  // A picker that wrongly says "needs setup" blocks a working agent; the run's own hint catches the
   // opposite case.
   test('a settings file that cannot be read is assumed to configure one', async () => {
     mkdirSync(join(home, '.qwen', 'settings.json'), { recursive: true });

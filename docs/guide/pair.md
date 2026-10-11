@@ -27,13 +27,14 @@ This starts the Bridge if it is not already running and prints a code:
 ```
   Pairing code:  K7QM-3XPT
 
-  Open the Browsentic popup, paste it, and press Connect.
+  Open the Browsentic side panel, paste it, and press Connect.
   Expires in 10 minutes and works once.
 ```
 
-Click Browsentic in the toolbar, enter the code, press **Connect**. In the apps, **Get a pairing
-code** on the Overview tab does the same. Up to three codes are live at once, so a code the app shows
-keeps working while a terminal mints another.
+Click Browsentic in the toolbar to open the side panel, then the status pill (or **Set up the link**
+in the empty chat), enter the code and press **Connect**. In the apps, **Get a pairing code** on the
+Overview tab does the same. Up to three codes are live at once, so a code the app shows keeps
+working while a terminal mints another.
 
 The Bridge then issues a long-lived session key that survives browser and Bridge restarts and lasts
 until you revoke it. Updating either side does not need a new pairing.

@@ -438,7 +438,7 @@ function explain(raw: string | undefined): string | undefined {
   if (!raw) return raw;
   const message = parseJsonLine<{ error?: { message?: string } }>(raw)?.error?.message ?? raw;
   return /model .*(not supported|does not exist|not found)/i.test(message)
-    ? `${message} Pick another model for Codex in the Browsentic popup, then try again.`
+    ? `${message} Pick another model for Codex in the Browsentic side panel, then try again.`
     : message;
 }
 

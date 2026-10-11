@@ -357,7 +357,7 @@ describe('reading the stream', () => {
       [
         'fail',
         'AGENT_FAILED',
-        "The 'gpt-nonexistent-9' model is not supported when using Codex with a ChatGPT account. Pick another model for Codex in the Browsentic popup, then try again.",
+        "The 'gpt-nonexistent-9' model is not supported when using Codex with a ChatGPT account. Pick another model for Codex in the Browsentic side panel, then try again.",
       ],
       false,
     ]);
@@ -405,7 +405,7 @@ describe('reading the stream', () => {
   test('a model that does not exist is explained the same way as a refused one', () => {
     const message = JSON.stringify({ error: { message: 'The model `gpt-9` does not exist' } });
     expect(readLines({ type: 'error', message })).toEqual([
-      ['fail', 'AGENT_FAILED', 'The model `gpt-9` does not exist Pick another model for Codex in the Browsentic popup, then try again.'],
+      ['fail', 'AGENT_FAILED', 'The model `gpt-9` does not exist Pick another model for Codex in the Browsentic side panel, then try again.'],
     ]);
   });
 

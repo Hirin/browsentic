@@ -33,8 +33,8 @@ Before you start:
   so have one ready before your first run; see [Choosing an agent](agents.md). Only driving the
   browser solely from an optional [MCP client](mcp-clients.md) needs no CLI, because that path
   starts nothing.
-- **One agent CLI is enough.** Browsentic checks for all of them, and the popup shows which are installed.
-  Switching is one click.
+- **One agent CLI is enough.** Browsentic checks for all of them, and the side panel's agent picker
+  shows which are installed. Switching is one click.
 
 ---
 
@@ -104,18 +104,18 @@ Setup, or the app's button for that browser, opens Browsentic's store page in it
 | Firefox 140 or newer | [The signed add-on](https://browsentic.com/download/firefox) | Accept both prompts: one lets github.com install software, one adds Browsentic. See [Firefox](#firefox) |
 | Ungoogled Chromium, a profile that blocks stores, an unreleased build | None: `setup --unpacked` writes a folder | See [Load unpacked](#load-unpacked-advanced) |
 
-Pin Browsentic to the toolbar from the puzzle-piece menu, so the popup is one click away. It updates
-itself from its store from then on.
+Pin Browsentic to the toolbar from the puzzle-piece menu, so the side panel is one click away. It
+updates itself from its store from then on.
 
 If you added it from the store before running setup, pick the same browser in setup and enter the
 code it shows.
 
 ## 3. Pair them, once
 
-Click Browsentic in the toolbar, enter the code the app or `setup` shows, and press **Connect**. The
-code works once and lives for ten minutes; `browsentic pair`, or **Get a pairing code** in the app,
-issues another. The browser keeps the pairing, so you do this once. [Pairing](pair.md) has the
-detail.
+Click Browsentic in the toolbar to open the side panel, press **Set up the link**, enter the code the
+app or `setup` shows, and press **Connect**. The code works once and lives for ten minutes;
+`browsentic pair`, or **Get a pairing code** in the app, issues another. The browser keeps the
+pairing, so you do this once. [Pairing](pair.md) has the detail.
 
 ---
 
@@ -166,7 +166,8 @@ choose **Install Add-on From File…** and pick it. Either way it is installed f
 restarts, unlike anything loaded through `about:debugging`. If `setup` says the file is not attached
 yet, Mozilla is still signing that version; it appears within minutes, occasionally longer.
 
-**2. Enter the pairing code** in the popup and press **Connect**.
+**2. Enter the pairing code** in the side panel (click the status pill to open **Connection**) and
+press **Connect**.
 
 Firefox checks for a newer signed build about once a day. When it has one, the side panel says so
 above the prompt; press **Update**, or let the next Firefox start install it. There is no ↻ step.

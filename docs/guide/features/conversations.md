@@ -7,13 +7,12 @@ what the side panel shows while runs are going.
 
 ## Voice and text
 
-Four ways in:
+Three ways in:
 
 | | |
 | --- | --- |
 | **Type** | The composer at the bottom of the side panel |
 | **Dictate** | Press the mic in the side panel and talk |
-| **Press to talk** | In the popup, when the panel is not open |
 | **Hands-free** | The panel put away and a mic on the page; see [Hands-free](hands-free.md) |
 
 Speech uses the browser's built-in recognition. Nothing is bundled or downloaded, which in Chrome
@@ -21,8 +20,8 @@ means audio is streamed to Google for transcription. If that matters to you, typ
 [Limits](../limits.md#speech-goes-to-google).
 
 The first time you turn the mic on, the panel shows **Allow microphone**. It opens a Browsentic tab
-where the browser can ask for access, because a side panel and a popup have nowhere to show that
-prompt. Choose **Allow** once; the tab closes itself and dictation starts.
+where the browser can ask for access, because a side panel has nowhere to show that prompt. Choose
+**Allow** once; the tab closes itself and dictation starts.
 
 Replies stream back token by token. Follow-ups continue the same conversation, so **"now click the
 second one"** works.

@@ -646,7 +646,7 @@ export class Model {
   }
 
   /**
-   * Opens the browser's store page in that browser and hands out the code its popup asks for. The
+   * Opens the browser's store page in that browser and hands out the code its side panel asks for. The
    * command opens it where it found the browser; anywhere else, the default browser gets the page.
    */
   addExtension(row: BrowserRow) {

@@ -416,7 +416,7 @@ async function pair(): Promise<void> {
   await bridge.close();
   const minutes = Math.round((expiresAt - Date.now()) / 60_000);
   console.log(`\n  Pairing code:  ${groupCode(code)}\n`);
-  console.log(`  Open the Browsentic popup, paste it, and press Connect.`);
+  console.log(`  Open the Browsentic side panel, paste it, and press Connect.`);
   console.log(`  Expires in ${minutes} minutes and works once.\n`);
 }
 

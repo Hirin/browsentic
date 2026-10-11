@@ -1,4 +1,6 @@
-type SidebarAction = { open: () => Promise<void>; close: () => Promise<void> };
+type SidebarAction = { open: () => Promise<void>; close: () => Promise<void>; toggle: () => Promise<void> };
+
+export const LAUNCHER_PAGE = 'launcher.html';
 
 function sidebarAction(): SidebarAction {
   return (browser as unknown as { sidebarAction: SidebarAction }).sidebarAction;
@@ -12,6 +14,19 @@ export function openSidePanel(windowId: number) {
 /** Firefox lets the background shut the sidebar, as long as a user gesture is still live. */
 export function closeSidebar(): Promise<void> {
   return sidebarAction().close();
+}
+
+export function toggleSidebar(): Promise<void> {
+  return sidebarAction().toggle();
+}
+
+/** A Chromium browser with no side panel keeps the launcher popup on its toolbar button instead. */
+export async function openPanelFromToolbar(): Promise<void> {
+  try {
+    await browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  } catch {
+    await browser.action.setPopup({ popup: LAUNCHER_PAGE });
+  }
 }
 
 /** Only the panel itself calls this, so `window.close()` is the fallback worth having. */

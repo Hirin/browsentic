@@ -1,7 +1,7 @@
 export const PANEL_SHORTCUT = 'toggle-side-panel';
 export const HANDS_FREE_SHORTCUT = 'toggle-hands-free';
 
-const POPUP = 'Open the popup';
+const TOOLBAR = 'Same as the toolbar button';
 const PANEL = 'Open or close the side panel';
 const HANDS_FREE = 'Start or stop hands-free';
 
@@ -13,20 +13,20 @@ interface ManifestCommand {
 export function manifestCommands(firefox: boolean): Record<string, ManifestCommand> {
   if (firefox) {
     return {
-      _execute_browser_action: { description: POPUP },
+      _execute_browser_action: { description: TOOLBAR },
       _execute_sidebar_action: { description: PANEL, suggested_key: { default: 'Alt+Shift+B' } },
     };
   }
   return {
-    _execute_action: { description: POPUP },
+    _execute_action: { description: TOOLBAR },
     [PANEL_SHORTCUT]: { description: PANEL, suggested_key: { default: 'Alt+Shift+B' } },
     [HANDS_FREE_SHORTCUT]: { description: HANDS_FREE, suggested_key: { default: 'Alt+Shift+H' } },
   };
 }
 
 const LABELS: Record<string, string> = {
-  _execute_action: POPUP,
-  _execute_browser_action: POPUP,
+  _execute_action: TOOLBAR,
+  _execute_browser_action: TOOLBAR,
   [PANEL_SHORTCUT]: PANEL,
   _execute_sidebar_action: PANEL,
   [HANDS_FREE_SHORTCUT]: HANDS_FREE,

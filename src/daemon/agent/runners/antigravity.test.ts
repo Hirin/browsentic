@@ -249,7 +249,7 @@ describe('the answer to a one-shot task', () => {
 describe('what a failed start is explained as', () => {
   test('a soft-denied tool names the rule to add and where', () => {
     expect(antigravityRunner.hint?.('tool call soft-denied: mcp(browsentic/page_click)')).toBe(
-      `Antigravity denied a tool call because it has no permission rule for Browsentic. Add "${MCP_RULE}" to permissions.allow in ${settingsPath}, or grant it from the Browsentic popup. (tool call soft-denied: mcp(browsentic/page_click))`,
+      `Antigravity denied a tool call because it has no permission rule for Browsentic. Add "${MCP_RULE}" to permissions.allow in ${settingsPath}, or grant it from the Browsentic side panel. (tool call soft-denied: mcp(browsentic/page_click))`,
     );
   });
 

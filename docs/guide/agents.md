@@ -11,9 +11,8 @@ MCP endpoint, which works with any client; see [MCP clients](mcp-clients.md).
 
 ## Picking an agent and a model
 
-Pick the agent in the toolbar popup or behind the side panel's status pill. Each agent shows its
-state (*ready*, *not installed* or *needs setup*), so a missing CLI shows up before you send an
-instruction.
+Pick the agent behind the side panel's status pill. Each agent shows its state (*ready*, *not
+installed* or *needs setup*), so a missing CLI shows up before you send an instruction.
 
 Each installed agent also has a model select. *Default* runs whatever that CLI would run on its own.
 A picked model is remembered per agent and applies from the next instruction. Changing the model
@@ -35,12 +34,12 @@ The other four have no such command, so the select offers a short list shipped w
 Claude Code that list is its aliases (`fable`, `opus`, `sonnet`, `haiku`), which it resolves to the
 newest model of each family.
 
-The Bridge reads each list in the background, so the popup never waits on one. A list is kept for
-six hours and read again at once when the CLI is updated; *Recheck* reads it again immediately. If a
-read fails (the CLI is signed out, times out, or prints something Browsentic cannot parse), the last
-list that read cleanly stays, or the shipped one if there is none, and the line under the select
-says why. A model you pinned yourself is never changed: if the CLI stops listing it, it stays
-selected, marked *not listed*.
+The Bridge reads each list in the background, so the agent picker never waits on one. A list is
+kept for six hours and read again at once when the CLI is updated; *Recheck* reads it again
+immediately. If a read fails (the CLI is signed out, times out, or prints something Browsentic
+cannot parse), the last list that read cleanly stays, or the shipped one if there is none, and the
+line under the select says why. A model you pinned yourself is never changed: if the CLI stops
+listing it, it stays selected, marked *not listed*.
 
 From a terminal:
 
@@ -116,7 +115,7 @@ starts Codex with `--ignore-user-config` instead, because a `-c` flag only merge
 `mcp_servers={}` clears nothing, and settings on a `browsentic` entry of your own would land on the
 run's. Either way your sign-in comes from `~/.codex`, and through exec the `model` and
 `model_reasoning_effort` at the top of your `config.toml` still apply when nothing is picked in the
-popup.
+agent picker.
 
 **Through exec, Codex hides the tools.** They are deferred behind its `tool_search`, and on a
 code-mode model (`gpt-5.6-terra` and the like) they exist only inside its `exec` sandbox. Left alone,
@@ -162,9 +161,9 @@ ships with.
 ### Antigravity needs one permission rule
 
 Headless `agy` soft-denies any MCP tool it has no rule for, which would refuse every browser action.
-Until the rule exists, the popup shows *needs setup*.
+Until the rule exists, the side panel's agent picker shows *needs setup*.
 
-The popup's button, or `browsentic agent fix antigravity`, appends exactly one entry,
+The agent picker's button, or `browsentic agent fix antigravity`, appends exactly one entry,
 `mcp(browsentic/*)`, to `permissions.allow` in `~/.gemini/antigravity-cli/settings.json` and leaves
 the rest of that file alone. Nothing is written until you press it. If a `deny` rule of yours covers
 the same tools, Browsentic will not overrule it; remove it yourself.
@@ -176,7 +175,8 @@ passes, the containment, the browser tools reaching a run, and each error Grok r
 conversation has run end to end yet, because the account it was built on was rate-limited before
 the model answered. Expect rough edges, and please report them.
 
-- **Sign in first.** Run `grok login`, or set `XAI_API_KEY`. Until then the popup shows *needs setup*.
+- **Sign in first.** Run `grok login`, or set `XAI_API_KEY`. Until then the agent picker shows
+  *needs setup*.
 - **A free Grok account is rate-limited.** Grok retries quietly for several minutes before giving
   up, so a run can sit silent that long before it fails with *xAI did not answer*.
 - **Other tools' MCP servers and Grok's memory are switched off.** Grok normally loads Claude Code's
@@ -237,8 +237,8 @@ and please report them.
 
 - **Configure a provider first.** Qwen OAuth's free tier ended on 2026-04-15 and its requests are
   now rejected, so installing Qwen and logging in is not enough. Run `qwen` and use `/auth`, or
-  export `OPENAI_API_KEY` with `OPENAI_BASE_URL` pointed at your endpoint. Until then the popup
-  shows *needs setup* and a run fails with *No auth type is selected*.
+  export `OPENAI_API_KEY` with `OPENAI_BASE_URL` pointed at your endpoint. Until then the agent
+  picker shows *needs setup* and a run fails with *No auth type is selected*.
 - **Only some keys reach a run.** Browsentic keeps `QWEN_*`, `DASHSCOPE_*`, `BAILIAN_*` and
   `OPENAI_*` in the run's environment and seals the rest away, so the `anthropic` and `gemini` auth
   types Qwen also accepts will not find their keys. This is deliberate:
@@ -278,7 +278,7 @@ them.
 - **Sign in to a provider first.** Run `opencode auth login`. Zen's free models answer only
   requests that carry OpenCode's own built-in tools. A Browsentic run carries only the browser's, so
   they refuse it with *free tier can only be used from within OpenCode*. Until OpenCode has a login,
-  or a provider in its config such as a local model, the popup shows *needs setup*.
+  or a provider in its config such as a local model, the agent picker shows *needs setup*.
 - **Models are `provider/model`**, spelled as `opencode models` lists them.
 - **A key in the environment does not reach a run.** Only `OPENCODE_*` does; `ANTHROPIC_API_KEY`
   and the like are sealed away. `opencode auth login` keeps the key in OpenCode's own file instead,
@@ -359,7 +359,7 @@ Claude runner's settings.
 | Qwen Code: *No auth type is selected* | Qwen has no provider configured, and its OAuth free tier has ended. Run `qwen` and use `/auth`, or export `OPENAI_API_KEY` with `OPENAI_BASE_URL`. |
 | Qwen Code cannot find a key you have exported | Only `QWEN_*`, `DASHSCOPE_*`, `BAILIAN_*` and `OPENAI_*` reach a run; `ANTHROPIC_*` and `GEMINI_*` are sealed away. Point Qwen at one of the first four. |
 | `AGENT_UNSAFE`: *Qwen Code registered …* or *loaded the MCP server …* | Qwen's own `init` line named a tool or a server Browsentic denied, so the run was stopped. Update Qwen Code and Browsentic, and report it if it persists. |
-| OpenCode: *free models refuse a run whose tools Browsentic has narrowed to the browser* | Zen's free tier serves only requests carrying OpenCode's own tools. Run `opencode auth login`, then pick that provider's model in the popup. |
+| OpenCode: *free models refuse a run whose tools Browsentic has narrowed to the browser* | Zen's free tier serves only requests carrying OpenCode's own tools. Run `opencode auth login`, then pick that provider's model in the side panel's agent picker. |
 | OpenCode: *could not start this turn* | Usually a model OpenCode does not know. Pick one as `opencode models` lists it, `provider/model`. |
 | The model select says *built-in list*, with a reason | Browsentic could not read that CLI's own list, usually because it is signed out. Sign it in, then press *Recheck*. The shipped list works meanwhile. |
 | A model shows *not listed* | You pinned it, and the CLI no longer lists it. It is still passed to the CLI; pick a listed one if runs start failing. |

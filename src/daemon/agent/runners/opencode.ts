@@ -258,7 +258,7 @@ function explain(failure: Failure | undefined): string {
   if (failure?.data?.responseBody?.includes('FreeTierError')) {
     return (
       `OpenCode Zen's free models refuse a run whose tools Browsentic has narrowed to the browser. Run "opencode auth login" ` +
-      `to sign in to a provider, then pick one of its models in the Browsentic popup. (${message})`
+      `to sign in to a provider, then pick one of its models in the Browsentic side panel. (${message})`
     );
   }
   if (failure?.name === 'ProviderAuthError' || status === 401 || status === 403) {
@@ -271,7 +271,7 @@ function explain(failure: Failure | undefined): string {
   if (failure?.name === 'UnknownError') {
     return (
       `OpenCode could not start this turn, most often because it does not know the model. Pick one in the ` +
-      `Browsentic popup as "opencode models" lists it — provider/model — then try again. (${message})`
+      `Browsentic side panel as "opencode models" lists it — provider/model — then try again. (${message})`
     );
   }
   return message;

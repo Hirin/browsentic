@@ -9,7 +9,7 @@ sign me up for the newsletter
 fill in the delivery details and stop before paying
 ```
 
-Open settings from the sliders button at the top of the side panel or the popup, and pick **Profile**.
+Open settings from the sliders button at the top of the side panel, and pick **Profile**.
 
 ---
 

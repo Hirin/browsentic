@@ -75,7 +75,7 @@ See [guide/install.md](../guide/install.md) and [guide/maintenance.md](../guide/
 
 | Command | Does |
 | --- | --- |
-| `browsentic pair` | Issue a one-time code to type into the extension popup. 8 characters, valid 10 minutes, single use |
+| `browsentic pair` | Issue a one-time code to paste into the side panel (status pill → **Connection**). 8 characters, valid 10 minutes, single use |
 | `browsentic sessions` | List paired browsers |
 | `browsentic revoke [id]` | Unpair one browser by the id `sessions` prints, or all of them. An origin still works, and unpairs every browser presenting it |
 

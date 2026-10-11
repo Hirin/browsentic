@@ -236,7 +236,7 @@ export const antigravityRunner: Runner = {
     if (/soft-denied|requires approval|not allowed/i.test(stderrTail)) {
       return (
         `Antigravity denied a tool call because it has no permission rule for Browsentic. ` +
-        `Add "${MCP_RULE}" to permissions.allow in ${settingsPath}, or grant it from the Browsentic popup. (${stderrTail.trim()})`
+        `Add "${MCP_RULE}" to permissions.allow in ${settingsPath}, or grant it from the Browsentic side panel. (${stderrTail.trim()})`
       );
     }
     if (/auth|sign in|login|credential/i.test(stderrTail)) {

@@ -88,7 +88,7 @@ Browsentic has two parts, plus the agent you already use: this extension, and Br
 • On macOS or Windows: install the Browsentic app from browsentic.com, which sets everything up
 • On Linux, or without the app: Node.js 20 or newer, then run: npx browsentic@latest setup
 • An agent CLI signed in on your computer, such as Claude Code, Codex, or one of the others listed at browsentic.com
-Then click Browsentic in the toolbar, enter the pairing code once, and open the side panel.
+Then click Browsentic in the toolbar to open the side panel, and enter the pairing code once.
 
 OPTIONAL: USE IT FROM AN MCP CLIENT
 An MCP client such as Claude Code, Cursor or Zed can also drive the same paired browser. The side panel does not need this.

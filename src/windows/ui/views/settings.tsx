@@ -172,7 +172,7 @@ function BrowserSettings({ model, state }: { model: Model; state: State }) {
         <div className="space-y-3.5">
           <SectionTitle
             title="Browser theme"
-            subtitle="How the side panel, the popup and the extension’s settings page look in every paired browser. This window keeps its own appearance."
+            subtitle="How the side panel and the extension’s settings page look in every paired browser. This window keeps its own appearance."
           />
           <ThemePicker theme={preferences.theme ?? DEFAULT_THEME} onSelect={(theme) => void model.setBrowserTheme(theme)} />
         </div>

@@ -248,7 +248,7 @@ describe('reading the stream', () => {
       [
         'fail',
         'AGENT_FAILED',
-        'Couldn\'t set model \'grok-nope\': Invalid params: "unknown model id". Run \'grok models\' to see available models. Pick another model for Grok Build in the Browsentic popup, then try again.',
+        'Couldn\'t set model \'grok-nope\': Invalid params: "unknown model id". Run \'grok models\' to see available models. Pick another model for Grok Build in the Browsentic side panel, then try again.',
       ],
     ]);
   });
@@ -258,7 +258,7 @@ describe('reading the stream', () => {
       [
         'fail',
         'AGENT_FAILED',
-        "--effort/--reasoning-effort: unknown effort level 'ultra'; use one of: xhigh, high, medium, low. Pick another effort for Grok Build in the Browsentic popup, then try again.",
+        "--effort/--reasoning-effort: unknown effort level 'ultra'; use one of: xhigh, high, medium, low. Pick another effort for Grok Build in the Browsentic side panel, then try again.",
       ],
     ]);
   });
@@ -303,7 +303,7 @@ describe('the answer to a one-shot task', () => {
 describe('what a failed start is explained as', () => {
   test('the error Grok printed, with what to do about it', () => {
     expect(grokRunner.hint?.("Error: Couldn't set model 'grok-nope': Invalid params: \"unknown model id\".\n")).toMatch(
-      /Pick another model for Grok Build in the Browsentic popup/,
+      /Pick another model for Grok Build in the Browsentic side panel/,
     );
   });
 

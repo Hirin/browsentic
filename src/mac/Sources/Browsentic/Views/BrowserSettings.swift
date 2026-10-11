@@ -46,7 +46,7 @@ private struct BrowserThemeCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionTitle(
                     title: "Browser theme",
-                    subtitle: "How the side panel, the popup and the extension’s settings page look in every paired browser. This window keeps its own appearance."
+                    subtitle: "How the side panel and the extension’s settings page look in every paired browser. This window keeps its own appearance."
                 )
                 HStack(spacing: 10) {
                     ForEach(BrowserTheme.allCases) { theme in

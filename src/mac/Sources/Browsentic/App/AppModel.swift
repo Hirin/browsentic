@@ -450,7 +450,7 @@ final class AppModel: ObservableObject {
         browserRows = rows
     }
 
-    /// Opens the browser's store page in that browser and hands out the code its popup asks for. The
+    /// Opens the browser's store page in that browser and hands out the code its side panel asks for. The
     /// command opens it where it found the browser; anywhere else, the app opens it itself.
     func addExtension(_ row: BrowserRow) async {
         await perform("add:\(row.id)") { cli, _ in

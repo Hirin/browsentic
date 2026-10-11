@@ -295,7 +295,7 @@ describe('readiness', () => {
     expect(await problem()).toBeNull();
   });
 
-  // A popup that wrongly says "needs setup" blocks a working agent; the run's own error catches the opposite case.
+  // A picker that wrongly says "needs setup" blocks a working agent; the run's own error catches the opposite case.
   test('a login file that cannot be read is assumed to hold one', async () => {
     mkdirSync(join(home, '.local', 'share', 'opencode', 'auth.json'), { recursive: true });
     expect(await problem()).toBeNull();

@@ -20,7 +20,7 @@ struct BrowsersView: View {
                             }
                         }
                         if model.sessions.isEmpty {
-                            EmptyState(icon: "globe", title: "No browser is paired", detail: "Add the extension from the Overview tab, or get a code above and enter it in the Browsentic popup.")
+                            EmptyState(icon: "globe", title: "No browser is paired", detail: "Add the extension from the Overview tab, or get a code above and enter it in the Browsentic side panel.")
                         } else {
                             ForEach(model.sessions) { SessionRow(session: $0) }
                         }

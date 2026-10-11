@@ -353,7 +353,7 @@ function explain(message: string | undefined): string | undefined {
     return `The provider behind Qwen Code is rate-limiting this account. Wait and try again. (${oneLine(message)})`;
   }
   if (/unknown model|model not found/i.test(message)) {
-    return `${oneLine(message)} Pick another model for Qwen Code in the Browsentic popup, then try again.`;
+    return `${oneLine(message)} Pick another model for Qwen Code in the Browsentic side panel, then try again.`;
   }
   return oneLine(message);
 }

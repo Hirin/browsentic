@@ -6,7 +6,7 @@ export { THEMES, DEFAULT_THEME, asTheme, type ThemeId } from '@/lib/settings/the
 export const THEME_KEY = 'browsentic/theme';
 
 /* storage.local answers a tick after the page has already painted, which on a
-   light theme is a dark flash every time the popup opens. The chosen id is
+   light theme is a dark flash every time the panel opens. The chosen id is
    mirrored here — the one store a document can read before its first frame —
    and storage.local stays the truth that corrects it. */
 const PAINT_HINT = 'browsentic/theme.paint';

@@ -31,7 +31,7 @@ export function BrowsersView({ model, state }: { model: Model; state: State }) {
             )}
           </div>
           {state.sessions.length === 0 ? (
-            <EmptyState icon={Globe} title="No browser is paired" detail="Add the extension from the Overview tab, or get a code above and enter it in the Browsentic popup." />
+            <EmptyState icon={Globe} title="No browser is paired" detail="Add the extension from the Overview tab, or get a code above and enter it in the Browsentic side panel." />
           ) : (
             state.sessions.map((session) => <SessionRow key={session.id} session={session} model={model} busy={state.busy.includes('revoke')} />)
           )}

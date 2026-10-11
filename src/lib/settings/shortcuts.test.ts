@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { HANDS_FREE_SHORTCUT, PANEL_SHORTCUT, keysOf, manifestCommands, shortcutsOf, shortcutsPageFor } from './shortcuts';
 
 describe('manifestCommands', () => {
-  it('gives Chromium the popup, the panel and hands-free', () => {
+  it('gives Chromium the toolbar button, the panel and hands-free', () => {
     expect(Object.keys(manifestCommands(false))).toEqual(['_execute_action', PANEL_SHORTCUT, HANDS_FREE_SHORTCUT]);
   });
 
-  it('gives Firefox its own popup and sidebar names, and no hands-free', () => {
+  it('gives Firefox its own toolbar button and sidebar names, and no hands-free', () => {
     expect(Object.keys(manifestCommands(true))).toEqual(['_execute_browser_action', '_execute_sidebar_action']);
   });
 });
@@ -27,14 +27,14 @@ describe('keysOf', () => {
 });
 
 describe('shortcutsOf', () => {
-  it('orders popup, panel, hands-free and names each the same everywhere', () => {
+  it('orders toolbar button, panel, hands-free and names each the same everywhere', () => {
     const shortcuts = shortcutsOf([
       { name: HANDS_FREE_SHORTCUT, description: 'Start or stop hands-free', shortcut: '' },
       { name: PANEL_SHORTCUT, description: 'Open or close the side panel', shortcut: 'Alt+Shift+B' },
       { name: '_execute_action', description: '', shortcut: '' },
     ]);
     expect(shortcuts.map(({ label }) => label)).toEqual([
-      'Open the popup',
+      'Same as the toolbar button',
       'Open or close the side panel',
       'Start or stop hands-free',
     ]);

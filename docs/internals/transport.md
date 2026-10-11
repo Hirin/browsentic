@@ -65,9 +65,9 @@ The extension connects to nothing until you pair it.
 
 1. `browsentic pair` asks the daemon for a code: 8 characters from an alphabet with the
    ambiguous glyphs removed, valid **10 minutes**, single use.
-2. You paste it into the popup. The extension dials `ws://127.0.0.1:<port>/extension`, walking the
-   three ports, and sends `hello`, which names *which* secret it holds and carries a fresh nonce,
-   never the secret itself.
+2. You paste it into the side panel (status pill → **Connection**) and press **Connect**. The
+   extension dials `ws://127.0.0.1:<port>/extension`, walking the three ports, and sends `hello`,
+   which names *which* secret it holds and carries a fresh nonce, never the secret itself.
 3. The daemon answers `challenge` with a nonce of its own. Both sides now share a transcript: the
    protocol version the `hello` claimed, the extension version, the manifest hash, and the two
    nonces. The manifest hash names the tool list this build offers: a Chromium build's, or a Firefox

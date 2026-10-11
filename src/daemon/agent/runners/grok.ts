@@ -248,10 +248,10 @@ function explain(message: string | undefined): string | undefined {
     return 'Grok Build is installed but not signed in. Run "grok login", or set XAI_API_KEY, then try again.';
   }
   if (/unknown model id|couldn't set model/i.test(message)) {
-    return `${sentence(message)} Pick another model for Grok Build in the Browsentic popup, then try again.`;
+    return `${sentence(message)} Pick another model for Grok Build in the Browsentic side panel, then try again.`;
   }
   if (/unknown effort level/i.test(message)) {
-    return `${sentence(message)} Pick another effort for Grok Build in the Browsentic popup, then try again.`;
+    return `${sentence(message)} Pick another effort for Grok Build in the Browsentic side panel, then try again.`;
   }
   if (/resource has been exhausted|requests too quickly/i.test(message)) {
     return `xAI is rate-limiting this Grok account. Wait a few minutes and try again, or upgrade at https://grok.com/supergrok. (${oneLine(message)})`;

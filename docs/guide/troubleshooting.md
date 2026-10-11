@@ -22,17 +22,17 @@ Those three answer most questions. The Bridge's log is at `~/.browsentic/daemon.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| The popup says `protocol version mismatch: daemon speaks v20` (any number below 22) | Browsentic Bridge is older than 0.7.14, too old for this extension | Update the Bridge (**Update now** in the app, or `npx browsentic@latest update`), then enter a new pairing code in the popup: after a refusal, this version of the extension waits for one |
-| The popup says `protocol version mismatch: Browsentic Bridge speaks v22 and takes extensions from v22 on` | The extension is older than 0.7.14, usually an unpacked copy that was never updated | Remove it and install the extension from its store, or run `browsentic update` and press ↻ on its card |
+| The side panel's **Connection** sheet says `protocol version mismatch: daemon speaks v20` (any number below 22) | Browsentic Bridge is older than 0.7.14, too old for this extension | Update the Bridge (**Update now** in the app, or `npx browsentic@latest update`), then enter a new pairing code in the side panel: after a refusal, this version of the extension waits for one |
+| The side panel's **Connection** sheet says `protocol version mismatch: Browsentic Bridge speaks v22 and takes extensions from v22 on` | The extension is older than 0.7.14, usually an unpacked copy that was never updated | Remove it and install the extension from its store, or run `browsentic update` and press ↻ on its card |
 | The store copy is a version behind the Bridge | The store has not published that version yet, or the browser checked before it did. A browser allows the extension one early check every few hours | Nothing breaks meanwhile, because the two work across versions. Once the browser has the update, the side panel says so above the prompt: press **Update**. To check now, turn on Developer mode at `chrome://extensions` and press **Update** there |
 | `browsentic status` says two copies of Browsentic answer in one browser | An unpacked copy and a store copy are both installed, and both inject into every page | Remove the unpacked copy on the browser's extensions page |
 | Edge will not install from the Chrome Web Store | Edge blocks other stores until you allow them | Press **Allow extensions from other stores** in the bar at the top of the store page, confirm, then press **Add to Chrome**. Or install from [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/browsentic/cbkjhkgjcpihokphhdkbahilpcjojpdc) instead |
 | `browsentic setup` keeps waiting for the browser | The extension is installed but not paired yet | Click Browsentic in the toolbar and enter the code `setup` printed. Ctrl-C stops the wait without undoing anything |
-| Popup shows `Expected {op:…}` | Stale service worker after a rebuild | At `chrome://extensions`, press ↻ on Browsentic |
+| The side panel's **Connection** sheet shows `Expected {op:…}` | Stale service worker after a rebuild | At `chrome://extensions`, press ↻ on Browsentic |
 | "That pairing code is wrong or expired" | Codes are single-use and last 10 minutes | Run `browsentic pair` for a new code. A failed attempt does not use up the outstanding code |
 | "No Browsentic daemon is running" | Browsentic Bridge is not installed, or not running on 8765–8767 | [Install it](install.md#1-install-browsentic), open the app, or run `browsentic start`. Then check `browsentic status` and `browsentic logs` |
 | `browsentic: command not found` | The global npm prefix is not on `PATH` | Run `npm prefix -g` and add its `bin` directory to your `PATH` |
-| "Browsentic has not been given the microphone yet" | Browsers cannot show the microphone prompt inside a side panel or a popup, so a fresh install has never asked | Press **Allow microphone** and choose **Allow** in the tab that opens |
+| "Browsentic has not been given the microphone yet" | Browsers cannot show the microphone prompt inside a side panel, so a fresh install has never asked | Press **Allow microphone** and choose **Allow** in the tab that opens |
 | "Microphone access is blocked" | Microphone permission was refused for the extension | Press **Allow microphone**, then click the icon at the left of that tab's address bar and set **Microphone** to **Allow** |
 | "This browser has no speech service" | Brave and some Chromium builds ship speech recognition without a transcription service behind it | Type instead, or use Chrome or Edge for dictation |
 | No detach button in the panel's header, and no `/hands-free` | Hands-free is offered only where speech can be transcribed: never in Firefox or Brave, and not in a browser whose speech service failed before it ever worked | Use Chrome or Edge. If the service was only out of reach, dictate in the panel once: the first word it transcribes brings the button back |
@@ -55,7 +55,7 @@ Those three answer most questions. The Bridge's log is at `~/.browsentic/daemon.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `AGENT_MISSING` | The chosen CLI is not on the *Bridge's* `PATH` | Run `browsentic agent` to see every agent, and set `agents.<name>.bin` to an absolute path in `config.json` |
-| `AGENT_NEEDS_PERMISSION` | Antigravity has no rule allowing Browsentic's page tools | Press the button in the popup, or run `browsentic agent fix antigravity` |
+| `AGENT_NEEDS_PERMISSION` | Antigravity has no rule allowing Browsentic's page tools | Press the button in the side panel's agent picker (behind the status pill), or run `browsentic agent fix antigravity` |
 | `AGENT_NEEDS_PERMISSION` for Grok Build | Grok Build is not signed in | Run `grok login`, or set `XAI_API_KEY` |
 | "does not understand the flags Browsentic uses" | The agent CLI is too old | Update the CLI |
 | The model select says *built-in list*, with a reason | Browsentic could not read that CLI's own model list, usually because the CLI is signed out | Sign the CLI in, then press **Recheck**. `browsentic agent models <name> --refresh` shows the full reason |
@@ -86,7 +86,7 @@ Those three answer most questions. The Bridge's log is at `~/.browsentic/daemon.
 | Qwen Code fails with *No auth type is selected* | Qwen has no provider configured, and its OAuth free tier ended on 2026-04-15 | Run `qwen` and use `/auth`, or export `OPENAI_API_KEY` with `OPENAI_BASE_URL` |
 | Qwen Code cannot see an API key you exported | Only `QWEN_*`, `DASHSCOPE_*`, `BAILIAN_*` and `OPENAI_*` reach a run; the rest are sealed away | Point Qwen at one of those four providers |
 | `AGENT_UNSAFE`: *Qwen Code registered …* / *loaded the MCP server …* | Qwen's own startup line named a tool or a server Browsentic denied, so the run was stopped before the model saw it | Update Qwen Code and Browsentic, and report it if it persists |
-| OpenCode fails with *free models refuse a run whose tools Browsentic has narrowed to the browser* | OpenCode Zen's free tier serves only requests carrying OpenCode's own built-in tools | Run `opencode auth login`, then pick that provider's model in the popup |
+| OpenCode fails with *free models refuse a run whose tools Browsentic has narrowed to the browser* | OpenCode Zen's free tier serves only requests carrying OpenCode's own built-in tools | Run `opencode auth login`, then pick that provider's model in the side panel's agent picker |
 | OpenCode fails with *could not start this turn* | Usually a model OpenCode does not know | Pick a model exactly as `opencode models` lists it, `provider/model` |
 | OpenCode cannot see an API key you exported | Only `OPENCODE_*` reaches a run; the rest are sealed away | Run `opencode auth login`, which keeps the key in OpenCode's own file |
 | `AGENT_UNSAFE`: *OpenCode ran its own … tool* | A tool outside the browser ran despite the run's rules, so the run was stopped | Update OpenCode and Browsentic, and report it |

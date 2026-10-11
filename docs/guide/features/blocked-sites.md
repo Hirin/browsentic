@@ -4,8 +4,8 @@ A list of sites Browsentic never reads or acts on, such as your bank, your mail 
 console. The list is enforced inside the browser, so no agent, MCP client or Bridge setting can
 loosen it.
 
-Open settings from the sliders button at the top of the side panel or the popup, and pick
-**Blocked sites**. It works without pairing.
+Open settings from the sliders button at the top of the side panel, and pick **Blocked sites**. It
+works without pairing.
 
 ---
 

@@ -129,16 +129,16 @@ ceiling is clamped; a value that is not a number ≥ 1 falls back to the default
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `theme` | absent (Ember) | `ember`, `midnight`, `phosphor` or `daylight`: the look of the side panel, the popup and the settings page |
+| `theme` | absent (Ember) | `ember`, `midnight`, `phosphor` or `daylight`: the look of the side panel and the settings page |
 
 Pick it from the row of tiles under **Appearance** in the **Extension** section of the settings
 page, or under **Browser theme** in the Mac app's Settings tab: **Ember** (warm near-black, cyan),
 **Midnight** (cool blue-black, violet), **Phosphor** (a green CRT) and **Daylight** (ink on paper).
 Each tile is drawn in the theme it offers.
 
-One theme applies to every paired browser: picking one anywhere repaints the side panel, the popup
-and the settings page in all of them. A browser that has never been paired keeps its choice locally
-and hands it to the Bridge when it first connects; a theme picked while the Bridge is unreachable is
+One theme applies to every paired browser: picking one anywhere repaints the side panel and the
+settings page in all of them. A browser that has never been paired keeps its choice locally and
+hands it to the Bridge when it first connects; a theme picked while the Bridge is unreachable is
 handed over at the next connect. The Mac app's own window has a separate System / Light / Dark
 setting.
 
@@ -151,7 +151,7 @@ in `config.json`; each browser keeps its own.
 | --- | --- |
 | **On the page** | **Show what the agent does**: the [action cues](features/action-cues.md) ring on each element an agent acts on. Off until you switch it on; the composer's button and the mic's menu switch the same setting |
 | **Right-click menu** | Whether a right-click on a page offers **Open Browsentic** (the side panel) and **Open Browsentic (Hands Free)**. Both are on until you switch one off. With both on, the browser groups them under a **Browsentic** entry |
-| **Keyboard shortcuts** | Shows the keys for **Open the popup**, **Open or close the side panel** and **Start or stop hands-free**. The browser owns these: it gives the side panel **Alt+Shift+B** and hands-free **Alt+Shift+H** (**⌥⇧B**, **⌥⇧H** on a Mac) at install unless something else already has them, and **Change shortcuts** opens its own shortcuts page. Firefox has the popup and the sidebar only |
+| **Keyboard shortcuts** | Shows the keys for **Same as the toolbar button**, **Open or close the side panel** and **Start or stop hands-free**. The browser owns these: it gives the side panel **Alt+Shift+B** and hands-free **Alt+Shift+H** (**⌥⇧B**, **⌥⇧H** on a Mac) at install unless something else already has them, and **Change shortcuts** opens its own shortcuts page. Firefox has the toolbar button and the sidebar only |
 | **Hands-free** | **Hold to talk**, the same switch as in the mic's own menu |
 
 The hands-free item, shortcut and block show only in a browser that can transcribe speech; see

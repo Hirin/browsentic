@@ -33,6 +33,8 @@ export default defineConfig({
       ...(browser === 'firefox' ? [] : ['sidePanel', 'debugger', 'offscreen', 'userScripts']),
     ],
     host_permissions: ['<all_urls>'],
+    // WXT writes the toolbar key only for a popup entrypoint, and the toolbar button opens the side panel instead.
+    action: { default_title: 'Browsentic' },
     commands: manifestCommands(browser === 'firefox'),
     // Release Firefox installs only what addons.mozilla.org has signed, and signing needs a
     // permanent id. The update URL is polled daily; the release job publishes updates.json

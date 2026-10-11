@@ -189,7 +189,7 @@ reading**, and then the gate no longer tells you anything.
 These settings can be changed without opening a file, from two places that edit the same rows:
 
 - **The settings page**, under **Guardrails**. Open it with the sliders button in the side panel's
-  header or the popup, or right-click the toolbar icon → **Options**.
+  header, or right-click the toolbar icon → **Options**.
 - **The Mac app's Settings tab**, in its **Guardrails** card.
 
 A change made in one shows up in the other at once, and so does a hand edit of the file.

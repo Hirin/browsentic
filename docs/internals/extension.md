@@ -37,7 +37,7 @@ Chromium anchors a permission prompt to a tab. A side panel and a popup have non
 an extension. `use-speech.ts` therefore reads `navigator.permissions` first. On `prompt` it never
 calls `getUserMedia` (repeated silent refusals would earn the origin a temporary block) and offers
 **Allow microphone** instead, which opens the unlisted `mic-permission.html` entrypoint in a tab,
-where the prompt can appear. The grant belongs to the extension's origin, so the panel, the popup
+where the prompt can appear. The grant belongs to the extension's origin, so the panel, the launcher
 and hands-free mode's offscreen page all see the `PermissionStatus` change and start listening
 without a reload. Firefox prompts from its sidebar on its own and skips the check.
 
@@ -83,6 +83,25 @@ it is the documented escape hatch.
 
 ---
 
+## The toolbar button
+
+On Chromium, `serveLaunchers()` in [launchers.ts](../../src/lib/bridge/launchers.ts) calls
+`openPanelFromToolbar()` from [side-panel.ts](../../src/lib/bridge/side-panel.ts), which sets
+`sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`, so a click on the toolbar button
+opens the side panel and a second click closes it. On Firefox, `browserAction.onClicked` calls
+`sidebarAction.toggle()`. Neither has a popup in between.
+
+Where `sidePanel.setPanelBehavior` is missing or rejects (a Chromium browser without a side panel),
+the button falls back to `action.setPopup({ popup: 'launcher.html' })`. That launcher,
+`entrypoints/launcher/`, is a small popup with the status pill, a mic, a text field, **Open side
+panel**, **Open hands-free**, and the same `DaemonLink` and `AgentPicker` the connection sheet shows.
+The Firefox build leaves it out.
+
+WXT writes the manifest's `action` key only when a `popup/` entrypoint exists, so `wxt.config.ts`
+declares `action: { default_title: 'Browsentic' }` itself. The shortcut bound to the button
+(`_execute_action`, or `_execute_browser_action` on Firefox) is listed as **Same as the toolbar
+button**.
+
 ## The panel's tabs
 
 `PanelNav` owns the tab strip: **Chat**, **History**, **Skills**, **Recordings**, **Schedules**.
@@ -102,14 +121,14 @@ keeps the strip from flapping between two fits at one panel width. In practice f
 Settings are not a panel tab. They are the extension's options page, `entrypoints/options/`, which
 WXT turns into `options_ui` with `open_in_tab` on both browsers. So it needs no permission, Chrome
 lists it as **Options** on the toolbar icon's menu, and Firefox as **Preferences** in about:addons.
-The panel's header, the popup's header and the connection sheet open it with
+The panel's header, the launcher's header and the connection sheet open it with
 `runtime.openOptionsPage()`, which focuses a settings tab already open instead of adding another.
 
 The page is a sidebar of seven sections (**Extension**, **Profile**, **Guardrails**, **Blocked sites**, **Agent**, **Connection**, **About**),
 with the open one in the URL hash, so a reload or a link lands on it; an unknown hash,
 such as the old `#appearance`, lands on **Extension**. **Agent** and **Connection** are the same
-`AgentPicker` and `DaemonLink` the popup and the connection sheet show; those keep their copies, so
-a blocked run is still one click from its fix.
+`AgentPicker` and `DaemonLink` the connection sheet and the launcher show; those keep their copies,
+so a blocked run is still one click from its fix.
 
 **Extension** is the theme, then what belongs to this browser alone, in `storage.local`: the
 right-click items (`browsentic/contextMenu`), the keyboard shortcuts, and hold to talk
@@ -185,7 +204,7 @@ draws four live previews with no second copy of the palette. Only raw tokens re-
 
 `browser.storage.local` under `browsentic/theme` is the truth, read by `useTheme()`. It answers a
 tick after the page has painted, though, which on a light theme means a dark flash every time the
-popup opens. So `mountTheme()` applies a `localStorage` mirror of the same id synchronously before
+panel opens. So `mountTheme()` applies a `localStorage` mirror of the same id synchronously before
 React mounts, and lets storage correct it a moment later. `index.html` carries
 `data-theme="ember"` and an inline ground so the frame before the stylesheet is neither white nor
 unpainted; `applyTheme` clears that inline colour, since an inline colour outranks every rule and
@@ -255,8 +274,8 @@ reads **Close Browsentic** while a panel is open, and a click on *Close* shuts i
 background closes the sidebar inside the gesture, and Chromium panels are told over the run port to
 close themselves. **Open Browsentic (Hands Free)** exists only where `handsFreeSupported()` says
 speech works, reads **Close Browsentic (Hands Free)** while the orb is up, and toggles
-`browsentic/handsFree`, exactly as the panel's detach button and the popup's **Open hands-free** do.
-The `toggle-side-panel` and `toggle-hands-free` shortcuts go through the same two toggles. The
+`browsentic/handsFree`, exactly as the panel's detach button and the launcher's **Open hands-free**
+do. The `toggle-side-panel` and `toggle-hands-free` shortcuts go through the same two toggles. The
 panel opens before anything is awaited, because both a menu click and a shortcut hand over a
 gesture the first `await` would spend.
 
@@ -432,10 +451,10 @@ Driving a phone (see [Android phones](android.md)) adds two unlisted entrypoints
 | `browsentic/phone` Port | Between the phone tab and the background (`phone-mirror.ts`): screencast frames and page state down, the user's taps, scrolls, keys and the bar's commands up |
 
 The phone session itself is `browsentic/phone` in `storage.session`, written only through
-`phone.ts`, and the side panel and popup read it with `usePhoneSession`. The panel recognises the
-phone tab by its id, not its URL: without the `tabs` permission an extension page's URL is hidden
-from `tabs.query`. The **Android** toggle is hidden on Firefox, and the Firefox build leaves out
-both entrypoints. No new permission was needed.
+`phone.ts`, and the side panel and the launcher read it with `usePhoneSession`. The panel
+recognises the phone tab by its id, not its URL: without the `tabs` permission an extension page's
+URL is hidden from `tabs.query`. The **Android** toggle is hidden on Firefox, and the Firefox build
+leaves out both entrypoints. No new permission was needed.
 
 ## Tab scoping
 

@@ -252,7 +252,7 @@ export const cursorRunner: Runner = {
 /**
  * `cursor-agent status` says "Not logged in" and still exits 0, so the words are the only answer.
  * Anything else — a timeout, a crash, a sentence nobody expected — reads as signed in, because a
- * popup that wrongly says *needs setup* blocks a working agent, while the run's own hint catches
+ * picker that wrongly says *needs setup* blocks a working agent, while the run's own hint catches
  * the opposite case.
  */
 function signedIn(bin: string): Promise<boolean> {

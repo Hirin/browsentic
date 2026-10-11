@@ -35,7 +35,7 @@ component.
 
 | Process | Started by | Lives for | Job |
 | --- | --- | --- | --- |
-| **Extension** | The browser | As long as the browser runs | Owns the tabs. Runs the side panel, the popup, the background service worker and one content script per page |
+| **Extension** | The browser | As long as the browser runs | Owns the tabs. Runs the side panel, the settings page, the background service worker and one content script per page |
 | **Daemon** (`daemon-main.js`) | Auto-spawned by the first CLI or MCP client that needs it | Until 30 minutes idle with no extension and no control clients | Owns the browser link, authorization, agent runs, screenshot writes, skill and site-map storage |
 | **MCP server** (`browsentic mcp`) | The MCP client, over stdio | The client's session | Translates MCP `tools/call` requests into daemon control frames. One process per client |
 | **Agent** (`claude -p` and friends) | The daemon, per side-panel instruction | One instruction | Reasons about the instruction and calls page tools. Contained to Browsentic's own MCP server |
