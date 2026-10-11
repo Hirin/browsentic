@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RunContext } from '@/lib/actions/protocol';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/lib/skills/format';
 import { stateDir } from '../lockfile';
 import { log } from '../log';
+import { expandHome } from '../paths';
 import { readAgentConfig } from './config';
 
 export type SkillSource = 'bundled' | 'user' | 'uploaded';
@@ -36,12 +37,6 @@ export function uploadedSkillsDir(): string {
   const configured = readAgentConfig().skillsDir;
   if (typeof configured === 'string' && configured.trim()) return expandHome(configured.trim());
   return join(homedir(), 'browsentic', 'skills');
-}
-
-function expandHome(p: string): string {
-  if (p === '~') return homedir();
-  if (p.startsWith('~/')) return join(homedir(), p.slice(2));
-  return isAbsolute(p) ? p : join(homedir(), p);
 }
 
 function skillDirs(): { dir: string; source: SkillSource }[] {
@@ -135,9 +130,13 @@ export interface RoutedSkill {
  */
 export const SCRIPTING_SKILL = 'page-scripting';
 
+/** The base of every run on the Android phone, whatever the instruction says or names: the other bases teach desktop tools a phone run is not offered. */
+export const PHONE_SKILL = 'phone';
+
 export function routeSkill(skills: Skill[], instruction: string, context?: RunContext): RoutedSkill | null {
   if (!skills.length) return null;
-  const bases = skills.filter((skill) => skill.category === 'general' && skill.name !== SCRIPTING_SKILL);
+  const bases = skills.filter((skill) => skill.category === 'general' && skill.name !== SCRIPTING_SKILL && skill.name !== PHONE_SKILL);
+  const phone = context?.phone ? skills.find((skill) => skill.name === PHONE_SKILL) : undefined;
   const fallback = bases.find((skill) => skill.isDefault) ?? bases[0] ?? skills[0];
 
   let text = instruction;
@@ -148,10 +147,11 @@ export function routeSkill(skills: Skill[], instruction: string, context?: RunCo
     const named = skills.find((skill) => skill.name.toLowerCase() === explicit[1].toLowerCase());
     if (named) {
       text = instruction.slice(explicit[0].length);
-      if (named.category === 'general') return { base: named, overlays: overlaysFor(skills, context, []), text };
+      if (named.category === 'general') return { base: phone ?? named, overlays: overlaysFor(skills, context, []), text };
       forced.push(named);
     }
   }
+  if (phone) return { base: phone, overlays: overlaysFor(skills, context, forced), text };
 
   const haystack = text.toLowerCase();
   let best = fallback;
