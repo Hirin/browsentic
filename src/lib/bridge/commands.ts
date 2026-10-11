@@ -22,6 +22,19 @@ export const isHandsFreeCommand = (text: string): boolean => {
   return typed === HANDS_FREE_COMMAND || HANDS_FREE_ALIASES.some((alias) => typed === `/${alias}`);
 };
 
+export const ANDROID_COMMAND = '/android';
+
+export const ANDROID_ALIASES = ['phone'];
+
+export const ANDROID_DESCRIPTION = 'Switch to Chrome on your Android phone, mirrored in a tab here.';
+
+export const ANDROID_LEAVE_DESCRIPTION = 'Leave the phone and go back to this browser.';
+
+export const isAndroidCommand = (text: string): boolean => {
+  const typed = text.trim().toLowerCase();
+  return typed === ANDROID_COMMAND || ANDROID_ALIASES.some((alias) => typed === `/${alias}`);
+};
+
 export const CONTEXT_COMMAND_DESCRIPTION =
   'See what this conversation carries — messages, files, recordings, tabs.';
 

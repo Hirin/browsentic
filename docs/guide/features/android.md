@@ -47,9 +47,14 @@ them. Android's [OEM USB drivers](https://developer.android.com/studio/run/oem-u
 
 ## Using it
 
-The **Android** switch (a phone icon) appears in the side panel's header once the Bridge sees a
-phone. Switch it on and a **phone tab** opens beside the tab you were on. It shows the page in
-front on the phone, kept up to date as it changes.
+The **Android** switch (a phone icon) is in the side panel's header. Until a phone is ready it is
+greyed out, and hovering it says why, such as no phone connected or adb not installed. Switch it on
+and a **phone tab** opens beside the tab you were on. It shows the page in front on the phone, kept
+up to date as it changes.
+
+Typing **`/android`** (or `/phone`) in the composer does the same, and typed again it takes you
+back to the computer's browser. The `/` menu always lists it, greyed out with the same reason while
+no phone is ready.
 
 - **Talk to it** in the side panel while the phone tab is in front, exactly as you would for a
   desktop tab. The conversation belongs to the phone tab, and the agent's actions land on the phone.

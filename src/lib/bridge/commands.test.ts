@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { isHandsFreeCommand } from './commands';
+import { isAndroidCommand, isHandsFreeCommand } from './commands';
+
+describe('isAndroidCommand', () => {
+  it('takes the command and /phone, in any case and padding', () => {
+    for (const typed of ['/android', '/phone', '  /Android ']) expect(isAndroidCommand(typed)).toBe(true);
+  });
+
+  it('leaves an instruction that merely mentions it alone', () => {
+    expect(isAndroidCommand('/android open youtube')).toBe(false);
+    expect(isAndroidCommand('android')).toBe(false);
+  });
+});
 
 describe('isHandsFreeCommand', () => {
   it('takes the command and the spellings people reach for', () => {

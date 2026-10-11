@@ -3,6 +3,10 @@ import { BookOpen, Globe, Sparkles, SquareSlash, Zap } from 'lucide-react';
 import type { SkillCatalog } from '@/lib/actions/protocol';
 import { AGENTS } from '@/lib/agents/catalog';
 import {
+  ANDROID_ALIASES,
+  ANDROID_COMMAND,
+  ANDROID_DESCRIPTION,
+  ANDROID_LEAVE_DESCRIPTION,
   CONTEXT_COMMAND,
   CONTEXT_COMMAND_DESCRIPTION,
   HANDS_FREE_ALIASES,
@@ -33,6 +37,13 @@ export interface SkillMenuItem {
   savedToolId?: string;
   /** Other spellings the filter matches, so a near miss still finds the command. */
   aliases?: string[];
+  /** Why the command cannot run right now. It stays listed, greyed out, with this in place of its description. */
+  unavailable?: string;
+}
+
+export interface AndroidOption {
+  on: boolean;
+  problem: string;
 }
 
 // Saved tools sort first: they are the only entries that do something on their own, and
@@ -51,7 +62,7 @@ export function skillMenuItems(
   tabUrl: string,
   query: string,
   tools: readonly SavedToolMeta[] = [],
-  { handsFree = false }: { handsFree?: boolean } = {},
+  { handsFree = false, android }: { handsFree?: boolean; android?: AndroidOption } = {},
 ): SkillMenuItem[] {
   const host = hostnameOf(tabUrl);
   const items: SkillMenuItem[] = [
@@ -71,6 +82,17 @@ export function skillMenuItems(
       description: HANDS_FREE_DESCRIPTION,
       command: HANDS_FREE_COMMAND,
       aliases: HANDS_FREE_ALIASES,
+    });
+  }
+  if (android) {
+    items.push({
+      key: 'command:android',
+      group: 'command',
+      name: 'android',
+      description: android.on ? ANDROID_LEAVE_DESCRIPTION : ANDROID_DESCRIPTION,
+      command: ANDROID_COMMAND,
+      aliases: ANDROID_ALIASES,
+      unavailable: android.problem || undefined,
     });
   }
   if (tools.length) {
@@ -160,6 +182,8 @@ export function SkillMenu({
               type="button"
               role="option"
               aria-selected={index === highlight}
+              aria-disabled={item.unavailable ? true : undefined}
+              title={item.unavailable}
               onMouseEnter={() => onHover(index)}
               onMouseDown={(event) => {
                 event.preventDefault();
@@ -168,6 +192,7 @@ export function SkillMenu({
               className={cn(
                 'flex w-full items-start gap-2 px-3 py-1.5 text-left transition-colors',
                 index === highlight ? 'bg-brand/12' : 'hover:bg-ground/40',
+                item.unavailable && 'cursor-not-allowed opacity-55',
               )}
             >
               {item.group === 'tool' ? (
@@ -183,8 +208,10 @@ export function SkillMenu({
               )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium text-ink">{item.name}</span>
-                {item.description && (
-                  <span className="block truncate text-[11px] text-ink-dim">{item.description}</span>
+                {item.unavailable ? (
+                  <span className="line-clamp-2 block text-[11px] text-ink-dim">{item.unavailable}</span>
+                ) : (
+                  item.description && <span className="block truncate text-[11px] text-ink-dim">{item.description}</span>
                 )}
               </span>
             </button>

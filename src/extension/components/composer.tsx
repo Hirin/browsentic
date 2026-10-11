@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { SkillMenu, skillMenuItems, type SkillMenuItem } from '@/extension/components/skill-menu';
+import { SkillMenu, skillMenuItems, type AndroidOption, type SkillMenuItem } from '@/extension/components/skill-menu';
 import type { SavedToolMeta } from '@/lib/bridge/saved-tools';
 import { Button } from '@/extension/components/ui/button';
 import { Textarea } from '@/extension/components/ui/textarea';
@@ -46,6 +46,7 @@ export function Composer({
   picking,
   liveTools,
   handsFree,
+  android,
   onToggleLiveTools,
   onPhone = false,
   scheduling,
@@ -79,6 +80,8 @@ export function Composer({
   liveTools: boolean;
   /** Whether `/hands-free` is offered — never where the browser cannot transcribe speech. */
   handsFree: boolean;
+  /** `/android`, listed wherever a phone could be driven; absent where none ever can. */
+  android?: AndroidOption;
   /** The panel is showing the phone conversation: what only works in a desktop tab is not offered. */
   onPhone?: boolean;
   onToggleLiveTools: () => void;
@@ -106,8 +109,8 @@ export function Composer({
   const menuOpen = slash !== null && connected;
   const [highlight, setHighlight] = useState(0);
   const menuItems = useMemo(
-    () => (menuOpen ? skillMenuItems(catalog, tabUrl, slash ?? '', tools, { handsFree }) : []),
-    [menuOpen, catalog, tabUrl, slash, tools, handsFree],
+    () => (menuOpen ? skillMenuItems(catalog, tabUrl, slash ?? '', tools, { handsFree, android }) : []),
+    [menuOpen, catalog, tabUrl, slash, tools, handsFree, android],
   );
 
   useEffect(() => setHighlight(0), [slash]);
@@ -118,6 +121,7 @@ export function Composer({
   }, [menuOpen, cancelPending]);
 
   function choose(item: SkillMenuItem) {
+    if (item.unavailable) return;
     if (item.savedToolId) {
       voice.setInput('');
       onRunTool(item.savedToolId);

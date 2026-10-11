@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, PanelRightClose, PictureInPicture2, SlidersHorizontal, SquarePen } from 'lucide-react';
 import { browser } from 'wxt/browser';
 
-import { isHandsFreeCommand, isRemoveToolsCommand } from '@/lib/bridge/commands';
+import { isAndroidCommand, isHandsFreeCommand, isRemoveToolsCommand } from '@/lib/bridge/commands';
 import { BRIDGE_CHANNEL, type FocusedElement } from '@/lib/actions/protocol';
 import { MAX_STORED_FILE_BYTES } from '@/lib/files/report';
 import { Wordmark } from '@/extension/components/brand';
@@ -14,7 +14,7 @@ import { DropMask } from '@/extension/components/drop-mask';
 import { Greeting } from '@/extension/components/greeting';
 import { MonitorBar } from '@/extension/components/monitor-bar';
 import { PanelNav, type PanelTab } from '@/extension/components/panel-nav';
-import { PhoneToggle } from '@/extension/components/phone-toggle';
+import { PhoneToggle, usePhoneSwitch } from '@/extension/components/phone-toggle';
 import { currentTarget } from '@/lib/bridge/phone';
 import { useMirroredPhone } from '@/lib/bridge/phone-client';
 import { RecordingBar } from '@/extension/components/recording-bar';
@@ -83,6 +83,11 @@ export default function App() {
   const tabUrl = useActiveTabUrl();
   const phone = useMirroredPhone();
   const onPhone = phone !== null;
+  const phoneSwitch = usePhoneSwitch();
+  const androidOption = useMemo(
+    () => (import.meta.env.FIREFOX ? undefined : { on: phoneSwitch.on, problem: phoneSwitch.problem }),
+    [phoneSwitch.on, phoneSwitch.problem],
+  );
   const handsFree = handsFreeSupported && !onPhone;
   const pageUrl = phone ? (currentTarget(phone)?.url ?? '') : tabUrl;
   const blockedHere = useBlockedPattern(pageUrl);
@@ -125,10 +130,7 @@ export default function App() {
   const voice = useVoiceComposer({
     active: voiceEnabled && connected && !run.running,
     onSubmit: (text) => {
-      if (handsFree && isHandsFreeCommand(text)) {
-        detach();
-        return;
-      }
+      if (takeCommand(text)) return;
       run.send(text, { agentSkillId: attachedSkill?.id, focus: focus ?? undefined, liveTools });
       setAttachedSkill(null);
       setFocus(null);
@@ -204,11 +206,21 @@ export default function App() {
     window.setTimeout(() => setDetaching(false), DETACH_MS + DETACH_STUCK_MS);
   }
 
-  function handleSend() {
-    if (handsFree && isHandsFreeCommand(voice.input)) {
+  function takeCommand(text: string): boolean {
+    if (handsFree && isHandsFreeCommand(text)) {
       detach();
-      return;
+      return true;
     }
+    if (isAndroidCommand(text)) {
+      voice.setInput('');
+      void phoneSwitch.toggle().then((result) => setAttachError(result.ok ? null : result.error.message));
+      return true;
+    }
+    return false;
+  }
+
+  function handleSend() {
+    if (takeCommand(voice.input)) return;
     if (!connected) return;
     if (scheduling) {
       schedule({ text: voice.input.trim(), url: tabUrl });
@@ -510,12 +522,10 @@ export default function App() {
             onToggleActionCues={() => setActionCues(!actionCues)}
             onAttachSkill={setAttachedSkill}
             handsFree={handsFree}
+            android={androidOption}
             onPhone={onPhone}
             onCommand={(command) => {
-              if (handsFree && isHandsFreeCommand(command)) {
-                detach();
-                return;
-              }
+              if (takeCommand(command)) return;
               if (isRemoveToolsCommand(command)) {
                 setShowTools(true);
                 return;
