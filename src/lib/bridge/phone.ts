@@ -104,16 +104,16 @@ export function startPhone(serial: string, windowId?: number): Promise<ActionRes
       await showTab(held.mirrorTabId, held.windowId);
       return success(held);
     }
-    if (held && !held.ended) closePhone(held.serial);
-    reset();
-
     const opened = await openPhone(serial);
     if (!opened.ok && opened.error.code !== 'CHROME_NOT_RUNNING') return opened;
+    if (held && !held.ended) closePhone(held.serial);
+    reset();
 
     const reusable = held && (await tabExists(held.mirrorTabId)) ? held : null;
     const mirror = reusable ? await showTab(reusable.mirrorTabId, reusable.windowId) : await openMirror(windowId);
     if (!mirror?.id) {
       if (opened.ok) closePhone(serial);
+      await writePhone(null);
       return failure('BRIDGE_ERROR', 'The phone tab could not be opened.');
     }
     const session: PhoneSession = numbered({
@@ -121,6 +121,7 @@ export function startPhone(serial: string, windowId?: number): Promise<ActionRes
       mirrorTabId: mirror.id,
       windowId: mirror.windowId ?? windowId ?? browser.windows.WINDOW_ID_CURRENT,
       openedAt: Date.now(),
+      tabNumbers: reusable?.serial === serial ? reusable.tabNumbers : undefined,
       ...opening(opened),
       ...(await describedPhone(serial, opened)),
     });
@@ -136,15 +137,32 @@ export function endPhone(reason: PhoneEndReason): Promise<void> {
     const held = await readPhone();
     if (!held) return;
     if (reason === 'closed') {
-      if (!held.ended) closePhone(held.serial);
-      reset();
-      await writePhone(null);
-      await clearNotification();
+      await dropPhone(held);
       if (await tabExists(held.mirrorTabId)) await browser.tabs.remove(held.mirrorTabId).catch(() => undefined);
       return;
     }
     if (held.ended) return;
     await writePhone({ ...held, ended: { reason, at: Date.now() } });
+  });
+}
+
+async function dropPhone(held: PhoneSession): Promise<void> {
+  if (!held.ended) closePhone(held.serial);
+  reset();
+  await writePhone(null);
+  await clearNotification();
+}
+
+const mirrorUrl = () => (browser.runtime.getURL as (path: string) => string)(PHONE_PAGE);
+
+/** Any page but the mirror in the mirror's tab: the user took the tab somewhere else. A tab being made reports about:blank on its way in. */
+export const leftMirror = (url: string | undefined): boolean => !!url && url !== 'about:blank' && !url.startsWith(mirrorUrl());
+
+/** The mirror tab went to another page: the session ends, and the tab, now the user's, stays. */
+function mirrorLeft(tabId: number): Promise<void> {
+  return locked(async () => {
+    const held = await readPhone();
+    if (held?.mirrorTabId === tabId) await dropPhone(held);
   });
 }
 
@@ -164,10 +182,15 @@ export function openChromeOnPhone(): Promise<ActionResult<PhoneSession>> {
 }
 
 export function servePhone(): void {
+  // A worker that starts has a new link, and the Bridge let go of the phone with the old one.
+  void endPhone('bridge-gone');
   browser.tabs.onRemoved.addListener((tabId) => {
     void readPhone().then((held) => {
       if (held?.mirrorTabId === tabId) void endPhone('closed');
     });
+  });
+  browser.tabs.onUpdated.addListener((tabId, change) => {
+    if (leftMirror(change.url)) void mirrorLeft(tabId);
   });
   onPhoneClosed((serial, reason) => {
     void readPhone().then((held) => {
@@ -192,7 +215,7 @@ async function describedPhone(serial: string, opened: ActionResult<PhoneOpened>)
 async function openMirror(windowId?: number) {
   const [current] = await browser.tabs.query(windowId === undefined ? { active: true, lastFocusedWindow: true } : { active: true, windowId });
   return browser.tabs.create({
-    url: (browser.runtime.getURL as (path: string) => string)(PHONE_PAGE),
+    url: mirrorUrl(),
     windowId: current?.windowId ?? windowId,
     index: current ? current.index + 1 : undefined,
     openerTabId: current?.id,

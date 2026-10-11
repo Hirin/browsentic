@@ -10,10 +10,10 @@ import { failure, success, type ActionResult } from '@/lib/actions/protocol';
 import { PHONE_API } from '@/lib/phone/page-api';
 import { drag, keyPress, onScreen, tap, typing, wheel, type InputStep, type Point, type Viewport } from '@/lib/phone/touch';
 import type { EvaluateReply, ToolkitPlace } from './code-toolkit';
-import { currentTarget, type PhoneSession } from './phone';
+import { currentTarget, onPhoneReset, type PhoneSession } from './phone';
 import { attachedSession, steerLensFromMirror } from './phone-mirror';
 import { refusalFor } from './site-guard';
-import { sendCdp } from './socket';
+import { onCdpEvent, onDaemonClosed, onPhoneClosed, sendCdp, type CdpEvent } from './socket';
 
 const BUNDLE = '/phone-page.js';
 const WORLD = 'browsentic';
@@ -39,6 +39,11 @@ interface Here {
   url: string;
   sessionId: string;
   cdp(method: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<CdpResult>;
+}
+
+interface FrameTree {
+  frame: { id: string; url?: string };
+  childFrames?: FrameTree[];
 }
 
 let bundle: Promise<string> | null = null;
@@ -93,9 +98,9 @@ async function topFrame(here: Here): Promise<string> {
   return id;
 }
 
-/** The frame a page action runs in: the one `switchFrame` entered, until the tab's address changes. */
+/** The frame a page action runs in: the one `switchFrame` entered, until the tab navigates or its address changes. */
 async function focusedFrame(here: Here): Promise<{ frameId: string; path: string[] }> {
-  const held = framePaths.get(here.targetId);
+  const held = framePaths.get(here.sessionId);
   const path = held && held.url === here.url ? held.frames : [];
   return { frameId: path.at(-1) ?? (await topFrame(here)), path };
 }
@@ -118,7 +123,9 @@ async function world(here: Here, frameId: string, fresh: boolean): Promise<numbe
   return contextId;
 }
 
-const contextGone = (message: string) => /Cannot find context|context was destroyed|Execution context/i.test(message);
+const CONTEXT_GONE = new RegExp(`Cannot find context|context was destroyed|Execution context|${PHONE_API} is not defined`, 'i');
+
+const contextGone = (message: string) => CONTEXT_GONE.test(message);
 
 async function evaluateIn(here: Here, frameId: string, expression: string, options: { timeoutMs?: number; byValue?: boolean } = {}): Promise<ActionResult<unknown>> {
   const { timeoutMs = CALL_TIMEOUT_MS, byValue = true } = options;
@@ -368,7 +375,7 @@ async function switchFrameOn(here: Here, input: unknown): Promise<ActionResult> 
   const { frameId, path } = await focusedFrame(here);
   if (!frame) {
     const frames = to === 'parent' ? path.slice(0, -1) : [];
-    framePaths.set(here.targetId, { url: here.url, frames });
+    framePaths.set(here.sessionId, { url: here.url, frames });
     return success({ frame: frames.length ? { depth: frames.length } : 'top' });
   }
   const element = await evaluateIn(here, frameId, `${PHONE_API}.frame(${JSON.stringify(frame)})`, { byValue: false });
@@ -376,8 +383,11 @@ async function switchFrameOn(here: Here, input: unknown): Promise<ActionResult> 
   const described = await here.cdp('DOM.describeNode', { objectId: (element.data as { objectId?: string }).objectId });
   const childFrame = described.ok ? (described.data.node as { frameId?: string } | undefined)?.frameId : undefined;
   if (!childFrame) return failure('UNSUPPORTED', 'That frame cannot be entered on the phone: Chrome keeps it in another process.');
+  const tree = await here.cdp('Page.getFrameTree');
+  const refused = await refusalFor(tree.ok ? frameUrls(tree.data.frameTree as FrameTree).get(childFrame) : undefined);
+  if (refused) return refused;
   const frames = [...path, childFrame];
-  framePaths.set(here.targetId, { url: here.url, frames });
+  framePaths.set(here.sessionId, { url: here.url, frames });
   return success({ frame: { depth: frames.length, frameId: childFrame } });
 }
 
@@ -419,8 +429,49 @@ export async function phoneToolkitPlace(phone: PhoneSession): Promise<ToolkitPla
       return evaluated.ok ? success(evaluated.data as EvaluateReply) : evaluated;
     },
     call: (input) => inPage(here, 'page.runCode', input),
-    refusal: () => refusalFor(here.url),
+    refusal: async () => refusalFor(...(await phoneUrls(phone))),
   };
+}
+
+function frameUrls(tree: FrameTree, into = new Map<string, string | undefined>()): Map<string, string | undefined> {
+  into.set(tree.frame.id, tree.frame.url);
+  for (const child of tree.childFrames ?? []) frameUrls(child, into);
+  return into;
+}
+
+/** The phone's front tab as it is right now, read from the page and not from the last event: its address, and every frame on the focused path. */
+export async function phoneUrls(phone: PhoneSession): Promise<(string | undefined)[]> {
+  const here = await hereOn(phone);
+  if (!here) return [currentTarget(phone)?.url];
+  const tree = await here.cdp('Page.getFrameTree');
+  const root = tree.ok ? (tree.data.frameTree as FrameTree | undefined) : undefined;
+  if (!root) return [here.url];
+  topFrames.set(here.sessionId, root.frame.id);
+  const urls = frameUrls(root);
+  const { path } = await focusedFrame(here);
+  return [here.url, root.frame.url, ...path.map((frameId) => urls.get(frameId))];
+}
+
+function forgetNavigated({ method, params, sessionId }: CdpEvent): void {
+  if (method !== 'Page.frameNavigated' || !sessionId) return;
+  const frame = params.frame as { id: string; parentId?: string };
+  if (frame.parentId) return void worlds.delete(`${sessionId}:${frame.id}`);
+  framePaths.delete(sessionId);
+  for (const key of worlds.keys()) if (key.startsWith(`${sessionId}:`)) worlds.delete(key);
+}
+
+function forgetAll(): void {
+  worlds.clear();
+  topFrames.clear();
+  framePaths.clear();
+}
+
+/** A document that navigates takes its isolated worlds and the frame `switchFrame` entered with it, as a desktop tab that starts loading does. */
+export function servePhoneBackend(): void {
+  onCdpEvent(forgetNavigated);
+  onPhoneReset(forgetAll);
+  onPhoneClosed(forgetAll);
+  onDaemonClosed(forgetAll);
 }
 
 /** Every page-side tool on the phone: its own code in the page where it can be, real input where the page cannot fake it. */

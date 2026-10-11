@@ -114,6 +114,10 @@ the background over the `browsentic/phone` Port, served by `phone-mirror.ts`:
   becomes wheel steps, keys become key events, and the bar's back, forward, reload, address and tab
   list become commands.
 
+The session ends, and the tab stays as the user's, when the phone tab is taken to any other page. A
+worker that starts ends a stored session too, because the Bridge let go of the phone with the old
+worker's link.
+
 A conversation started on the phone tab is anchored on the phone's page, never on `phone.html`
 (`phone-conversation.ts`), and its `TabSession` carries `phone: { serial }`. Each run's
 `RunContext.phone` carries the model, the Android and Chrome versions and the viewport, read when
@@ -133,11 +137,14 @@ tab.
 3. **The phone branch.** Before any desktop check, `phoneRoute` (`phone-invoke.ts`) sees that the
    run's tab is the phone tab, and `invokeOnPhone` takes over. Host-side tools (the timers) skip the
    branch. `invokeOnPhone` checks `PHONE_TOOLS`, checks the blocked-sites list against the **phone
-   page's** address, releases sealed secrets, and calls the backend. Tab tools (`navigate`,
-   `openTab`, `switchTab`, `closeTab`) have their own handlers there, over `Target.*` and `Page.*`.
+   page's** address as it is now and every frame on the focused path (`openTab`, `switchTab` and
+   `closeTab` check the tab they pick instead), releases sealed secrets, and calls the backend. Tab
+   tools (`navigate`, `openTab`, `switchTab`, `closeTab`) have their own handlers there, over
+   `Target.*` and `Page.*`; a phone tab on a blocked site is never listed, matched or named.
 4. **Finding the element.** `pageSideOnPhone` (`phone-backend.ts`) asks the page where the element
    is. The page side runs in an isolated world named `browsentic`, made with
-   `Page.createIsolatedWorld` on first use and cached per tab and frame; the bundle `phone-page.js`
+   `Page.createIsolatedWorld` on first use and cached per DevTools session and frame until that
+   document navigates; the bundle `phone-page.js`
    (built from `entrypoints/phone-page.ts` and `src/lib/phone/page-api.ts`) is evaluated in it once.
    It holds the same action code desktop tabs run, under `__browsenticPhone.dispatch`, with no
    extension API in it. A call that finds its world gone, because the page navigated, makes it again
@@ -149,8 +156,9 @@ tab.
 6. **Bridge → phone.** `daemon.ts` passes the frame to the relay's `command`, which sends it on the
    phone's WebSocket, through the adb forward, to Chrome. The result comes back the same way as
    `cdpResult`.
-7. **The result.** `invokeOnPhone` checks the landing address against blocked sites again for
-   tools that navigate, seals any secret in what came back, and the result returns to the agent.
+7. **The result.** `invokeOnPhone` checks the phone page and its focused frames against blocked
+   sites again after every tool but `switchTab` and `closeTab`, seals any secret in what came back,
+   and the result returns to the agent.
    The phone tab shows the tap as the next screencast frame.
 
 ## Touch, keys and scrolling

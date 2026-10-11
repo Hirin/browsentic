@@ -12,6 +12,8 @@ const phone = vi.hoisted(() => ({
   location: 'https://news.example/',
   fronted: [] as string[],
   followed: [] as string[],
+  tree: undefined as { frame: { id: string; url: string }; childFrames?: { frame: { id: string; url: string } }[] } | undefined,
+  read: () => undefined as void,
 }));
 
 vi.mock('./socket', () => ({
@@ -19,6 +21,14 @@ vi.mock('./socket', () => ({
   sendCdp: async (_serial: string, method: string, params?: Record<string, unknown>) => {
     phone.sent.push({ method, params });
     if (method === 'Page.navigate') phone.location = String(params?.url);
+    if (method === 'Page.getFrameTree') return success(phone.tree ? { frameTree: phone.tree } : {});
+    if (method === 'Page.createIsolatedWorld') return success({ executionContextId: 1 });
+    if (method === 'DOM.describeNode') return success({ node: { frameId: 'AD' } });
+    if (method === 'Runtime.evaluate' && String(params?.expression).startsWith('__browsenticPhone.frame')) return success({ result: { objectId: 'IFRAME' } });
+    if (method === 'Runtime.evaluate' && String(params?.expression).startsWith('__browsenticPhone.dispatch')) {
+      phone.read();
+      return success({ result: { value: { ok: true, data: { text: 'what the page says' } } } });
+    }
     if (method === 'Runtime.evaluate') return success({ result: { value: JSON.stringify({ url: phone.location, title: 'Landed', readyState: 'complete' }) } });
     if (method === 'Target.createTarget') return success({ targetId: 'C'.repeat(32) });
     if (method === 'Page.getLayoutMetrics') return success({ cssVisualViewport: { clientWidth: 411, clientHeight: 675 } });
@@ -51,6 +61,9 @@ beforeEach(async () => {
   phone.fronted.length = 0;
   phone.followed.length = 0;
   phone.location = 'https://news.example/';
+  phone.tree = undefined;
+  phone.read = () => undefined;
+  vi.stubGlobal('fetch', async () => new Response('/* the bundle */'));
   desktopTabId = (await fakeBrowser.tabs.create({ url: 'https://desktop.example/', active: false })).id!;
   mirrorTabId = (await fakeBrowser.tabs.create({ url: 'chrome-extension://abc/phone.html', active: true })).id!;
   await fakeBrowser.storage.session.set({
@@ -82,6 +95,13 @@ describe('which calls go to the phone', () => {
   test('a call landing on the phone tab with no run does, and a desktop tab’s does not', async () => {
     expect(await phoneRoute(mirrorTabId, undefined)).toMatchObject({ serial: SERIAL });
     expect(await phoneRoute(desktopTabId, undefined)).toBeNull();
+  });
+
+  test('a run on one phone is told it is gone once the session moved to another phone', async () => {
+    const ensured = await ensureSessionForTab({ tabId: mirrorTabId });
+    if (!ensured.ok) throw new Error('no session');
+    await patchSession(ensured.session.sessionId, { runId: 'run-4', phone: { serial: 'R5CT1234567' } });
+    expect(await phoneRoute(mirrorTabId, 'run-4')).toBe('gone');
   });
 
   test('a run whose conversation lives on the phone tab does, wherever its tab id points', async () => {
@@ -143,12 +163,44 @@ describe('a tool on the phone', () => {
     expect(await landed).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
   });
 
+  test('a phone page that moved on since the last event is judged by where it is now', async () => {
+    await block('bank.example');
+    phone.tree = { frame: { id: HOME, url: 'https://bank.example/login' } };
+    expect(await invokeOnPhone('page.getPageInfo', {}, await route())).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
+    expect(phone.sent.map(({ method }) => method)).toEqual(['Page.getFrameTree']);
+  });
+
+  test('a blocked frame is never entered, and one that becomes blocked refuses everything after', async () => {
+    const enter = async () => invokeOnPhone('page.switchFrame', { frame: { selector: 'iframe' } }, await route());
+    phone.tree = { frame: { id: HOME, url: 'https://news.example/' }, childFrames: [{ frame: { id: 'AD', url: 'https://ads.example/slot' } }] };
+    await block('ads.example');
+    expect(await enter()).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
+    expect(await invokeOnPhone('page.extractText', {}, await route())).toMatchObject({ ok: true });
+
+    await block();
+    expect(await enter()).toMatchObject({ ok: true });
+    await block('ads.example');
+    const before = phone.sent.length;
+    expect(await invokeOnPhone('page.extractText', {}, await route())).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
+    expect(phone.sent.slice(before).some(({ params }) => String(params?.expression).startsWith('__browsenticPhone.dispatch'))).toBe(false);
+
+    await block();
+    expect(await invokeOnPhone('page.switchFrame', {}, await route())).toMatchObject({ ok: true });
+  });
+
+  test('a read that ends on a blocked page sends nothing back', async () => {
+    await block('bank.example');
+    phone.tree = { frame: { id: HOME, url: 'https://news.example/' } };
+    phone.read = () => void (phone.tree = { frame: { id: HOME, url: 'https://bank.example/' } });
+    expect(await invokeOnPhone('page.extractText', {}, await route())).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
+  });
+
   test('navigate opens the URL in the phone’s current tab and waits for it to load', async () => {
     expect(await invokeOnPhone('page.navigate', { url: 'https://wikipedia.org/' }, await route())).toEqual({
       ok: true,
       data: { navigatedTo: 'https://wikipedia.org/', finalUrl: 'https://wikipedia.org/', title: 'Landed', loaded: true },
     });
-    expect(phone.sent[0]).toEqual({ method: 'Page.navigate', params: { url: 'https://wikipedia.org/' } });
+    expect(phone.sent.find(({ method }) => method === 'Page.navigate')).toEqual({ method: 'Page.navigate', params: { url: 'https://wikipedia.org/' } });
   });
 
   test('switchTab takes the phone’s tab numbers, brings that tab to the front and moves the mirror to it', async () => {
@@ -158,6 +210,26 @@ describe('a tool on the phone', () => {
       ok: true,
       data: { tabs: [{ tabId: 1, active: true }, { tabId: 2, active: false }] },
     });
+  });
+
+  test('a tab on a blocked site is never listed, matched or closed, as on desktop', async () => {
+    await block('shop.example');
+    expect(await invokeOnPhone('page.switchTab', {}, await route())).toEqual({
+      ok: true,
+      data: { tabs: [{ tabId: 1, url: 'https://news.example/', title: 'News', active: true }], hidden: 1 },
+    });
+    const matched = await invokeOnPhone('page.switchTab', { match: 'shop' }, await route());
+    expect(matched).toMatchObject({ ok: false, error: { code: 'INVALID_TARGET' } });
+    expect(JSON.stringify(matched)).not.toContain('shop.example');
+    expect(await invokeOnPhone('page.closeTab', { tabId: 2 }, await route())).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
+    expect(phone.sent.map(({ method }) => method)).not.toContain('Target.closeTarget');
+  });
+
+  test('a blocked phone page still lets the agent switch away or open another tab', async () => {
+    await block('news.example');
+    expect(await invokeOnPhone('page.switchTab', { tabId: 2 }, await route())).toMatchObject({ ok: true, data: { activeTabId: 2 } });
+    expect(await invokeOnPhone('page.openTab', { url: 'https://docs.example/', active: false }, await route())).toMatchObject({ ok: true });
+    expect(await invokeOnPhone('page.openTab', { url: 'https://news.example/' }, await route())).toMatchObject({ ok: false, error: { code: 'SITE_BLOCKED' } });
   });
 
   test('openTab in the background opens in front, as Android insists, then puts the previous tab back', async () => {

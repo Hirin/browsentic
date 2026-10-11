@@ -19,6 +19,7 @@ import { navigate } from '@/lib/actions/page/navigate';
 import { autoRunReady, syncAutoRuns } from './auto-run';
 import { onToolOffer, runSavedTool, toolkitCode, type ToolOffer } from './code-toolkit';
 import { toolkitPlaceFor } from './phone-invoke';
+import { leftMirror } from './phone';
 import { CONTEXT_COMMAND, isContextCommand, type ContextBreakdown } from './commands';
 import { listSavedTools, withoutCode, type SavedToolMeta } from './saved-tools';
 import { dropTool, keepTool, switchAutoRun } from './tool-registry';
@@ -858,8 +859,8 @@ export function serveTabSessions(): void {
     if (changeInfo.title === undefined && changeInfo.url === undefined) return;
     void serialized(async () => {
       const session = await sessionForTab(tabId);
-      if (!session || session.phone) return;
-      const patch: Partial<TabSession> = {};
+      if (!session || (session.phone && !leftMirror(changeInfo.url))) return;
+      const patch: Partial<TabSession> = session.phone ? { phone: undefined } : {};
       if (tabId === session.mainTabId && tab.title && tab.title !== session.title) patch.title = tab.title;
       if (tabId === session.currentTabId && changeInfo.url) {
         patch.url = changeInfo.url;

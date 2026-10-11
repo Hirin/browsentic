@@ -81,8 +81,9 @@ phone's tabs, and timers. The differences:
 | A screenshot is of the desktop tab | A screenshot is of the phone's screen, at the page's size |
 | Tabs are your browser window's tabs | Tabs are the phone's Chrome tabs |
 
-[Blocked sites](blocked-sites.md) are checked against the phone's own address, and
-[approvals](../approvals.md) work as they do on a desktop tab.
+[Blocked sites](blocked-sites.md) are checked against the phone's own address and its frames, a
+phone tab on a blocked site is never shown to the agent, and [approvals](../approvals.md) work as
+they do on a desktop tab.
 
 **[A-Eye](a-eye.md)** works on the phone tab too. Press its button in the side panel and the phone
 tab's picture becomes the lens: the element under your pointer is outlined on the phone, and a click

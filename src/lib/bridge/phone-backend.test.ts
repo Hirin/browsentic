@@ -10,14 +10,20 @@ const phone = vi.hoisted(() => ({
   contexts: 0,
   answer: (_expression: string): unknown => ({ ok: true, data: {} }),
   goneOnce: false,
+  missingOnce: false,
   viewport: { offsetX: 0, offsetY: 50, clientWidth: 411, clientHeight: 675 },
+  events: [] as ((event: unknown) => void)[],
 }));
 
 vi.mock('./socket', () => ({
   DAEMON_STATE_KEY: 'browsentic/daemon',
   sendCdp: async (_serial: string, method: string, params?: Record<string, unknown>) => {
     phone.sent.push({ method, params });
-    if (method === 'Page.getFrameTree') return success({ frameTree: { frame: { id: 'TOP' } } });
+    if (method === 'Page.getFrameTree') {
+      return success({ frameTree: { frame: { id: 'TOP', url: 'http://localhost:8080/now' }, childFrames: [{ frame: { id: 'AD', url: 'https://ads.example/slot' } }] } });
+    }
+    if (method === 'DOM.describeNode') return success({ node: { frameId: 'AD' } });
+    if (method === 'Runtime.evaluate' && String(params?.expression).startsWith('__browsenticPhone.frame')) return success({ result: { objectId: 'IFRAME' } });
     if (method === 'Page.createIsolatedWorld') return success({ executionContextId: ++phone.contexts });
     if (method === 'Page.getLayoutMetrics') return success({ cssVisualViewport: phone.viewport, cssLayoutViewport: { pageX: 0, pageY: 300, clientWidth: 411, clientHeight: 675 } });
     if (method === 'Page.captureScreenshot') return success({ data: 'SHOT' });
@@ -26,12 +32,16 @@ vi.mock('./socket', () => ({
         phone.goneOnce = false;
         return failure('CDP_ERROR', 'Cannot find context with specified id');
       }
+      if (phone.missingOnce) {
+        phone.missingOnce = false;
+        return success({ exceptionDetails: { text: 'Uncaught', exception: { description: 'ReferenceError: __browsenticPhone is not defined\n    at <anonymous>:1:1' } } });
+      }
       return success({ result: { value: await phone.answer(String(params?.expression)) } });
     }
     if (method === 'Runtime.evaluate' && String(params?.expression).includes('scrollY')) return success({ result: { value: { scrollX: 0, scrollY: 574 } } });
     return success({});
   },
-  onCdpEvent: () => undefined,
+  onCdpEvent: (listener: (event: unknown) => void) => phone.events.push(listener),
   onPhoneClosed: () => undefined,
   onDaemonClosed: () => undefined,
 }));
@@ -46,7 +56,8 @@ vi.mock('./phone-mirror', () => ({
   },
 }));
 
-const { pageSideOnPhone, pickClip, shotClip } = await import('./phone-backend');
+const { pageSideOnPhone, phoneUrls, pickClip, servePhoneBackend, shotClip } = await import('./phone-backend');
+servePhoneBackend();
 
 const SESSION: PhoneSession = {
   serial: 'emulator-5554',
@@ -64,6 +75,7 @@ beforeEach(() => {
   fakeBrowser.reset();
   phone.sent.length = 0;
   phone.goneOnce = false;
+  phone.missingOnce = false;
   phone.viewport = { offsetX: 0, offsetY: 50, clientWidth: 411, clientHeight: 675 };
   phone.answer = () => ({ ok: true, data: {} });
   vi.stubGlobal('fetch', async () => new Response('/* the bundle */'));
@@ -85,6 +97,47 @@ describe('page-side tools on the phone', () => {
     phone.goneOnce = true;
     expect((await pageSideOnPhone('page.getPageInfo', {}, SESSION)).ok).toBe(true);
     expect(methods().filter((method) => method === 'Page.createIsolatedWorld').length - before).toBe(1);
+  });
+
+  test('a stale context that lands somewhere without the bundle makes the world again too', async () => {
+    await pageSideOnPhone('page.getPageInfo', {}, SESSION);
+    const before = methods().filter((method) => method === 'Page.createIsolatedWorld').length;
+    phone.missingOnce = true;
+    expect((await pageSideOnPhone('page.getPageInfo', {}, SESSION)).ok).toBe(true);
+    expect(methods().filter((method) => method === 'Page.createIsolatedWorld').length - before).toBe(1);
+  });
+});
+
+const navigated = (frame: { id: string; parentId?: string }) => phone.events.forEach((listener) => listener({ t: 'cdpEvent', serial: 'emulator-5554', method: 'Page.frameNavigated', params: { frame }, sessionId: 'session-1' }));
+
+describe('the phone tab as it is now', () => {
+  const leave = () => pageSideOnPhone('page.switchFrame', {}, SESSION);
+
+  test('is the address it last reported, the one it has now, and every frame on the focused path', async () => {
+    await leave();
+    expect(await phoneUrls(SESSION)).toEqual(['http://localhost:8080/', 'http://localhost:8080/now']);
+    expect(await pageSideOnPhone('page.switchFrame', { frame: { selector: 'iframe' } }, SESSION)).toMatchObject({ ok: true, data: { frame: { frameId: 'AD' } } });
+    expect(await phoneUrls(SESSION)).toEqual(['http://localhost:8080/', 'http://localhost:8080/now', 'https://ads.example/slot']);
+  });
+
+  test('a document that navigates forgets the frame it was in and its isolated worlds, as a desktop tab that loads does', async () => {
+    await pageSideOnPhone('page.switchFrame', { frame: { selector: 'iframe' } }, SESSION);
+    await pageSideOnPhone('page.getPageInfo', {}, SESSION);
+    const worlds = () => methods().filter((method) => method === 'Page.createIsolatedWorld').length;
+    const before = worlds();
+    navigated({ id: 'TOP' });
+    expect(await phoneUrls(SESSION)).toEqual(['http://localhost:8080/', 'http://localhost:8080/now']);
+    await pageSideOnPhone('page.getPageInfo', {}, SESSION);
+    expect(worlds() - before).toBe(1);
+  });
+
+  test('a frame that navigates forgets only its own world', async () => {
+    await leave();
+    await pageSideOnPhone('page.getPageInfo', {}, SESSION);
+    const before = methods().filter((method) => method === 'Page.createIsolatedWorld').length;
+    navigated({ id: 'AD', parentId: 'TOP' });
+    await pageSideOnPhone('page.getPageInfo', {}, SESSION);
+    expect(methods().filter((method) => method === 'Page.createIsolatedWorld').length).toBe(before);
   });
 });
 

@@ -20,7 +20,7 @@ vi.mock('./socket', () => ({
   onPhoneClosed: (listener: (serial: string, reason: PhoneClosedReason) => void) => socket.phoneClosed.push(listener),
 }));
 
-const { endPhone, openChromeOnPhone, readPhone, servePhone, startPhone } = await import('./phone');
+const { endPhone, leftMirror, openChromeOnPhone, readPhone, servePhone, startPhone, updatePhone } = await import('./phone');
 
 const SERIAL = 'emulator-5554';
 const OPENED: PhoneOpened = {
@@ -128,6 +128,60 @@ describe('the phone session', () => {
     expect(socket.launchPhoneChrome).toHaveBeenCalledWith(SERIAL);
     expect(await readPhone()).toMatchObject({ waitingForChrome: false, targets: OPENED.targets });
     expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  test('Reconnect keeps the numbers the phone’s tabs already had in this conversation', async () => {
+    await startPhone(SERIAL);
+    await updatePhone((session) => ({ ...session, tabNumbers: { ['A'.repeat(32)]: 3 } }));
+    socket.phoneClosed.forEach((listener) => listener(SERIAL, 'unplugged'));
+    await settle();
+    await startPhone(SERIAL);
+    expect((await readPhone())?.tabNumbers).toEqual({ ['A'.repeat(32)]: 3 });
+  });
+
+  test('moving to another phone that cannot be opened leaves the first one on', async () => {
+    await startPhone(SERIAL);
+    socket.openPhone.mockResolvedValueOnce(failure('NOT_OWNER', 'Another browser is driving this phone.'));
+    expect(await startPhone('R5CT1234567')).toMatchObject({ ok: false, error: { code: 'NOT_OWNER' } });
+    expect(socket.closePhone).not.toHaveBeenCalled();
+    expect(await readPhone()).toMatchObject({ serial: SERIAL });
+    expect((await readPhone())?.ended).toBeUndefined();
+  });
+
+  test('moving to another phone closes the first only once the second is open, in the same tab', async () => {
+    await startPhone(SERIAL);
+    const { mirrorTabId } = (await readPhone())!;
+    expect((await startPhone('R5CT1234567')).ok).toBe(true);
+    expect(socket.closePhone).toHaveBeenCalledWith(SERIAL);
+    expect(socket.openPhone.mock.invocationCallOrder[1]).toBeLessThan(socket.closePhone.mock.invocationCallOrder[0]);
+    expect(await readPhone()).toMatchObject({ serial: 'R5CT1234567', mirrorTabId });
+  });
+
+  test('a worker that starts with a session in storage ends it: the Bridge let go of the phone with the old worker’s link', async () => {
+    await startPhone(SERIAL);
+    servePhone();
+    await settle();
+    expect((await readPhone())?.ended?.reason).toBe('bridge-gone');
+  });
+
+  test('a mirror tab the user takes to another page ends the session and keeps the tab', async () => {
+    await startPhone(SERIAL);
+    const { mirrorTabId } = (await readPhone())!;
+    const mirror = await fakeBrowser.tabs.get(mirrorTabId);
+    await fakeBrowser.tabs.onUpdated.trigger(mirrorTabId, { url: 'https://mail.example/' }, { ...mirror, url: 'https://mail.example/' });
+    await settle();
+    expect(await readPhone()).toBeNull();
+    expect(socket.closePhone).toHaveBeenCalledWith(SERIAL);
+    expect((await fakeBrowser.tabs.get(mirrorTabId)).id).toBe(mirrorTabId);
+  });
+
+  test('any other page counts as leaving the mirror, never the mirror page itself or a blank tab on the way', () => {
+    expect(leftMirror(undefined)).toBe(false);
+    expect(leftMirror(fakeBrowser.runtime.getURL('/phone.html'))).toBe(false);
+    expect(leftMirror('about:blank')).toBe(false);
+    expect(leftMirror('https://mail.example/')).toBe(true);
+    expect(leftMirror('chrome://newtab/')).toBe(true);
+    expect(leftMirror('file:///Users/me/notes.html')).toBe(true);
   });
 
   test('any other refusal opens nothing and says why', async () => {

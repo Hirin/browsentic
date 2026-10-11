@@ -10,22 +10,22 @@ import { switchTab } from '@/lib/actions/page/switch-tab';
 import { failure, success, type ActionResult } from '@/lib/actions/protocol';
 import { EXPIRED_MESSAGE, REFUSED_MESSAGE } from '@/lib/secrets';
 import { notOnPhone, phoneOffers } from '@/lib/phone/features';
+import type { PhoneTarget } from '@/lib/phone/types';
 import { currentTarget, isLive, readPhone, targetForNumber, updatePhone, numbered, type PhoneSession } from './phone';
 import { installToolkit, runToolkit, tabPlace, type ToolkitPlace } from './code-toolkit';
-import { hereOn, pageSideOnPhone, phoneToolkitPlace, waitForLoad } from './phone-backend';
+import { hereOn, pageSideOnPhone, phoneToolkitPlace, phoneUrls, waitForLoad } from './phone-backend';
 import { attachedSession, bringToFront, followTarget } from './phone-mirror';
 import { releaseForAction, sealForPage } from './secret-vault';
-import { refusalFor } from './site-guard';
+import { refusalFor, siteCheck } from './site-guard';
 import { sendCdp } from './socket';
 import { sessionForRun, type TabSession } from './tab-sessions';
 
 const GONE = 'The phone disconnected. Reconnect it and switch Android on again.';
 
-/** Pages a tool lands on, checked against the blocked list once it has run. */
-const LANDS = new Set([navigate.name, openTab.name, 'page.searchSite', 'page.submitForm', 'page.clickElement', 'page.trustedClick']);
+/** These pick another phone tab to land on or close, and check that tab where they pick it. */
+const PICKS_ITS_TAB = new Set([openTab, switchTab, closeTab].map((action) => action.name));
 
 type PhoneBackend = (action: string, input: unknown, phone: PhoneSession) => Promise<ActionResult>;
-
 
 /**
  * The phone session a call belongs to: its run's conversation lives on the phone tab, or, with no
@@ -34,7 +34,7 @@ type PhoneBackend = (action: string, input: unknown, phone: PhoneSession) => Pro
 export async function phoneRoute(tabId: number | undefined, runId: string | undefined): Promise<PhoneSession | 'gone' | null> {
   const owner: TabSession | null = runId ? await sessionForRun(runId) : null;
   const phone = await readPhone();
-  if (owner) return owner.phone ? (isLive(phone) && phone ? phone : 'gone') : null;
+  if (owner) return owner.phone ? (phone && isLive(phone) && phone.serial === owner.phone.serial ? phone : 'gone') : null;
   if (!phone) return null;
   const tab = tabId ?? (await browser.tabs.query({ active: true, currentWindow: true }))[0]?.id;
   if (tab !== phone.mirrorTabId) return null;
@@ -47,8 +47,7 @@ export async function invokeOnPhone(action: string, input: unknown, route: Phone
   if (route === 'gone') return failure('PHONE_GONE', GONE);
   if (!phoneOffers(action)) return failure('NOT_ON_PHONE', notOnPhone(action));
 
-  const here = currentTarget(route)?.url;
-  const refused = await refusalFor(here, ...destinationsOf(action, input, here));
+  const refused = await guardPhone(action, input, route);
   if (refused) return refused;
 
   const release = await releaseForAction(action, input);
@@ -56,12 +55,31 @@ export async function invokeOnPhone(action: string, input: unknown, route: Phone
   if (release.unresolved.length) return failure('SECRET_EXPIRED', EXPIRED_MESSAGE);
 
   const result = await (TAB_TOOLS[action] ?? pageSideOnPhone)(action, release.input, route);
-  if (result.ok && LANDS.has(action)) {
-    const landed = await refusalFor(currentTarget((await readPhone()) ?? route)?.url, textOf((result.data as { finalUrl?: unknown })?.finalUrl));
-    if (landed) return landed;
-  }
-  const { value } = await sealForPage(result, hostOf(currentTarget((await readPhone()) ?? route)?.url));
+  const after = (await readPhone()) ?? route;
+  const landed = await guardPhoneLanding(action, result, after);
+  if (landed) return landed;
+  const { value } = await sealForPage(result, hostOf(currentTarget(after)?.url));
   return value;
+}
+
+/** The phone's blocked-sites gate, as `guardTarget` is the desktop's: the tab's address, every frame on the focused path, and wherever the action would send the phone. */
+async function guardPhone(action: string, input: unknown, phone: PhoneSession): Promise<ActionResult | null> {
+  const here = currentTarget(phone)?.url;
+  const destinations = destinationsOf(action, input, here);
+  if (PICKS_ITS_TAB.has(action)) return refusalFor(...destinations);
+  return (await refusalFor(here, ...destinations)) ?? refusalFor(...(await phoneUrls(phone)));
+}
+
+/** A redirect, a tap or a slow read can leave the phone somewhere blocked; nothing read there goes back. */
+async function guardPhoneLanding(action: string, result: ActionResult, phone: PhoneSession): Promise<ActionResult | null> {
+  if (!result.ok || action === switchTab.name || action === closeTab.name) return null;
+  const reported = result.data as { tabId?: unknown; finalUrl?: unknown; landedOn?: unknown } | undefined;
+  const reportedUrls = [textOf(reported?.finalUrl), textOf(reported?.landedOn)];
+  if (action === openTab.name) {
+    const opened = typeof reported?.tabId === 'number' ? targetForNumber(phone, reported.tabId) : undefined;
+    return refusalFor(phone.targets.find((target) => target.targetId === opened)?.url, ...reportedUrls);
+  }
+  return refusalFor(...(await phoneUrls(phone)), ...reportedUrls);
 }
 
 function destinationsOf(action: string, input: unknown, base?: string): (string | undefined)[] {
@@ -174,20 +192,42 @@ async function openPhoneTab(_action: string, input: unknown, phone: PhoneSession
   return success({ performed: `opened ${href} in a new phone tab`, openedUrl: href, finalUrl: landing.url, tabId, loaded: landing.loaded, activeTabId: tabId, previousTabId: previous && phone.tabNumbers?.[previous.targetId] });
 }
 
-const describeTabs = (phone: PhoneSession) =>
-  phone.targets.map((target) => ({ tabId: phone.tabNumbers?.[target.targetId], url: target.url, title: target.title, active: target.targetId === phone.activeTargetId }));
+type Usable = (target: PhoneTarget) => boolean;
+
+/** A phone tab on a blocked site is treated as a desktop one is: never listed, never matched, never named. */
+async function usableTargets(): Promise<Usable> {
+  const blocked = await siteCheck();
+  return (target) => !blocked(target.url);
+}
+
+const describeTabs = (phone: PhoneSession, usable: Usable) =>
+  phone.targets
+    .filter(usable)
+    .map((target) => ({ tabId: phone.tabNumbers?.[target.targetId], url: target.url, title: target.title, active: target.targetId === phone.activeTargetId }));
+
+function inventory(phone: PhoneSession, usable: Usable) {
+  const tabs = describeTabs(phone, usable);
+  const hidden = phone.targets.length - tabs.length;
+  return { tabs, ...(hidden ? { hidden } : {}) };
+}
+
+const noMatch = (phone: PhoneSession, usable: Usable) => failure('INVALID_TARGET', `No phone tab matches. The phone's tabs: ${JSON.stringify(describeTabs(phone, usable))}`);
+
+function pickTarget(phone: PhoneSession, { tabId, match }: { tabId?: number; match?: string }, usable: Usable): PhoneTarget | undefined {
+  if (tabId != null) return phone.targets.find((target) => target.targetId === targetForNumber(phone, tabId));
+  if (match == null) return phone.targets.find((target) => target.targetId === phone.activeTargetId);
+  const needle = match.toLowerCase();
+  return phone.targets.filter(usable).find((target) => `${target.title} ${target.url}`.toLowerCase().includes(needle));
+}
 
 async function switchPhoneTab(_action: string, input: unknown, phone: PhoneSession): Promise<ActionResult> {
   const parsed = switchTab.input.safeParse(input ?? {});
   if (!parsed.success) return failure('INVALID_INPUT', z.prettifyError(parsed.error));
   const { tabId, match } = parsed.data;
-  if (tabId == null && match == null) return success({ tabs: describeTabs(phone) });
-  const targetId =
-    tabId != null
-      ? targetForNumber(phone, tabId)
-      : phone.targets.find((target) => `${target.title} ${target.url}`.toLowerCase().includes(String(match).toLowerCase()))?.targetId;
-  const target = phone.targets.find((each) => each.targetId === targetId);
-  if (!target) return failure('INVALID_TARGET', `No phone tab matches. The phone's tabs: ${JSON.stringify(describeTabs(phone))}`);
+  const usable = await usableTargets();
+  if (tabId == null && match == null) return success(inventory(phone, usable));
+  const target = pickTarget(phone, { tabId, match }, usable);
+  if (!target) return noMatch(phone, usable);
   const refused = await refusalFor(target.url);
   if (refused) return refused;
   await bringToFront(phone.serial, target.targetId);
@@ -199,14 +239,11 @@ async function closePhoneTab(_action: string, input: unknown, phone: PhoneSessio
   const parsed = closeTab.input.safeParse(input ?? {});
   if (!parsed.success) return failure('INVALID_INPUT', z.prettifyError(parsed.error));
   const { tabId, match } = parsed.data;
-  const targetId =
-    tabId != null
-      ? targetForNumber(phone, tabId)
-      : match != null
-        ? phone.targets.find((target) => `${target.title} ${target.url}`.toLowerCase().includes(String(match).toLowerCase()))?.targetId
-        : phone.activeTargetId;
-  const target = phone.targets.find((each) => each.targetId === targetId);
-  if (!target) return failure('INVALID_TARGET', `No phone tab matches. The phone's tabs: ${JSON.stringify(describeTabs(phone))}`);
+  const usable = await usableTargets();
+  const target = pickTarget(phone, { tabId, match }, usable);
+  if (!target) return noMatch(phone, usable);
+  const refused = await refusalFor(target.url);
+  if (refused) return refused;
   if (phone.targets.length <= 1) return failure('INVALID_TARGET', 'That is the only tab open on the phone. Open another first, or leave this one alone.');
   const closed = await sendCdp(phone.serial, 'Target.closeTarget', { targetId: target.targetId });
   if (!closed.ok) return closed;
