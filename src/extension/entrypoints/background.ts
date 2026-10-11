@@ -25,6 +25,7 @@ import { servePreferences } from '@/lib/bridge/preferences';
 import { endPhone, openChromeOnPhone, servePhone, startPhone } from '@/lib/bridge/phone';
 import { servePhoneMirror } from '@/lib/bridge/phone-mirror';
 import { servePhoneBackend } from '@/lib/bridge/phone-backend';
+import { serveExtensionUpdates } from '@/lib/bridge/extension-update';
 import { isAgentKind } from '@/lib/agents/catalog';
 import { isPreferenceChange } from '@/lib/settings/preferences';
 import {
@@ -238,6 +239,7 @@ export default defineBackground(() => {
   servePhone();
   servePhoneMirror();
   servePhoneBackend();
+  serveExtensionUpdates();
   void syncRail();
 
   onWelcome(() => {

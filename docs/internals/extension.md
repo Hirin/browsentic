@@ -532,6 +532,38 @@ scope, not on each move within it, once `load` has fired and the DOM has gone 40
 mutation (3 s at most). The approved code is wrapped the way the installer wraps it, and it is
 evaluated once per document.
 
+## Updates wait for the panel
+
+A browser installs a store update only once the extension is idle, and a live Bridge link means it
+never is: a worker that stops reconnects within a second. So a downloaded update used to sit, held
+by the browser, until the next browser start. Chrome records this in `Secure Preferences` as
+`idle_install_info` with `delay_install_reason: 2` (wait for idle).
+
+`extension-update.ts` holds the update for the panel instead. `runtime.onUpdateAvailable` gives the
+held version, which goes to `storage.session` under `browsentic/waitingUpdate`. The panel shows the
+pill above the prompt while that version is newer than the one running, and while no conversation
+has a run going and nothing is being recorded, since a reload ends them all.
+**Update** calls `runtime.reload()`, which installs the held update at once (Chromium's
+`ExtensionRegistrar` finishes a delayed install on reload). A reload closes the side panel and
+every extension page, and clears `storage.session`.
+
+A Bridge newer than the extension, read from the welcome, means a release is out, so the background
+asks the store now with `runtime.requestUpdateCheck()` rather than waiting for the browser's own
+check. Chrome allows one such check every five hours (its backoff starts at the update frequency),
+so `browsentic/updateCheckedFor` spends it once per Bridge version. The call resolves as soon as the
+store names a version, before the download, so the pill waits for `onUpdateAvailable` rather than
+trusting that answer. A Bridge-only release finds nothing and shows nothing.
+
+Firefox applies an update at once when nothing listens to `onUpdateAvailable`, mid-run included.
+The listener makes it wait for the pill too. Firefox has no `requestUpdateCheck`, so it finds an
+update only on its own daily check.
+
+An unpacked copy has no store. Its files are read from the folder the Bridge rewrites, so on a
+newer Bridge the worker fetches `/manifest.json`, which reports the version on disk, not the one
+loaded. If that is newer, it is held the same way, and **Update** reloads the extension from the
+folder. `browsentic update` and the apps restart the Bridge before they rewrite the folder, so the
+welcome often comes too early; the panel reads the manifest again whenever it opens or gets focus.
+
 ---
 
 ## Next

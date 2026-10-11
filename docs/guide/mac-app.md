@@ -123,8 +123,9 @@ the release, checks its signature and that it is the version it claims to be, th
 and reopens it. The new app replaces the Bridge and restarts it. **Check for updates** on the same
 card checks again immediately.
 
-The extension updates itself from its store. Only an unpacked copy needs ↻ on its card at
-`chrome://extensions`, and the app tells you when. The extension and the Bridge do not have to be
+The extension downloads its updates from its store, and the side panel offers **Update** once one
+is ready. An unpacked copy needs ↻ on its card at `chrome://extensions`, or **Update** in the side
+panel, and the app tells you when. The extension and the Bridge do not have to be
 the same version.
 
 A release reaches npm a few minutes before its Mac build is attached; until then the card says so
