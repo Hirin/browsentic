@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
   CalendarClock,
   Code2,
@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { SkillMenu, skillMenuItems, type AndroidOption, type SkillMenuItem } from '@/extension/components/skill-menu';
+import { SkillMenu, skillMenuItems, skillOptionId, type AndroidOption, type SkillMenuItem } from '@/extension/components/skill-menu';
 import type { SavedToolMeta } from '@/lib/bridge/saved-tools';
 import { Button } from '@/extension/components/ui/button';
 import { Textarea } from '@/extension/components/ui/textarea';
@@ -108,6 +108,7 @@ export function Composer({
   const slash = voice.input.startsWith('/') ? voice.input.slice(1) : null;
   const menuOpen = slash !== null && connected;
   const [highlight, setHighlight] = useState(0);
+  const menuId = useId();
   const menuItems = useMemo(
     () => (menuOpen ? skillMenuItems(catalog, tabUrl, slash ?? '', tools, { handsFree, android }) : []),
     [menuOpen, catalog, tabUrl, slash, tools, handsFree, android],
@@ -199,6 +200,7 @@ export function Composer({
       >
         {menuOpen && (
           <SkillMenu
+            id={menuId}
             items={menuItems}
             agent={catalog?.agent}
             highlight={highlight}
@@ -208,6 +210,8 @@ export function Composer({
         )}
         <Textarea
           ref={composerRef}
+          aria-controls={menuOpen ? menuId : undefined}
+          aria-activedescendant={menuOpen && menuItems.length > 0 ? skillOptionId(menuId, highlight) : undefined}
           value={voice.input}
           onChange={(event) => voice.setInput(event.target.value)}
           onKeyDown={(event) => {

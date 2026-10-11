@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { BookOpen, Globe, Sparkles, SquareSlash, Zap } from 'lucide-react';
 
 import type { SkillCatalog } from '@/lib/actions/protocol';
@@ -140,13 +141,25 @@ export function skillMenuItems(
   return matched.sort((a, b) => GROUP_ORDER[a.group] - GROUP_ORDER[b.group] || a.name.localeCompare(b.name));
 }
 
+/** Moves only the menu: `scrollIntoView` would scroll the side panel around it too. */
+function keepInView(list: HTMLElement, row: HTMLElement): void {
+  if (row.offsetTop < list.scrollTop) list.scrollTop = row.offsetTop;
+  else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) {
+    list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
+  }
+}
+
+export const skillOptionId = (menuId: string, index: number) => `${menuId}-option-${index}`;
+
 export function SkillMenu({
+  id,
   items,
   agent,
   highlight,
   onHover,
   onSelect,
 }: {
+  id: string;
   items: SkillMenuItem[];
   agent: SkillCatalog['agent'] | undefined;
   highlight: number;
@@ -162,8 +175,23 @@ export function SkillMenu({
     'other-site': 'Other sites',
   };
 
+  const list = useRef<HTMLDivElement>(null);
+  // A row the pointer reached is already in view, and scrolling to it would slide the next row under the pointer.
+  const pointed = useRef(false);
+
+  useEffect(() => {
+    if (pointed.current) {
+      pointed.current = false;
+      return;
+    }
+    const row = list.current?.children[highlight];
+    if (list.current && row instanceof HTMLElement) keepInView(list.current, row);
+  }, [highlight, items]);
+
   return (
     <div
+      ref={list}
+      id={id}
       role="listbox"
       aria-label="Skills and commands"
       className="enters absolute inset-x-0 bottom-full z-20 mb-2 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface shadow-lg"
@@ -180,11 +208,16 @@ export function SkillMenu({
             )}
             <button
               type="button"
+              id={skillOptionId(id, index)}
               role="option"
               aria-selected={index === highlight}
               aria-disabled={item.unavailable ? true : undefined}
               title={item.unavailable}
-              onMouseEnter={() => onHover(index)}
+              onMouseEnter={() => {
+                if (index === highlight) return;
+                pointed.current = true;
+                onHover(index);
+              }}
               onMouseDown={(event) => {
                 event.preventDefault();
                 onSelect(item);
