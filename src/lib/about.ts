@@ -7,6 +7,7 @@ export const LINKS = {
   repository: REPOSITORY,
   site: 'https://browsentic.com',
   guide: 'https://browsentic.com/docs/guide/',
+  pairing: 'https://browsentic.com/docs/guide/install/#3-pair-them-once',
   troubleshooting: 'https://browsentic.com/docs/guide/troubleshooting/',
   windowsApp: 'https://browsentic.com/docs/guide/windows-app/',
   changelog: 'https://browsentic.com/changelog/',

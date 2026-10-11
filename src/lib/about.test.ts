@@ -1,5 +1,27 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { bugReportUrl, describeAgent, describeVersions } from './about';
+import { LINKS, bugReportUrl, describeAgent, describeVersions } from './about';
+
+const siteSlug = (heading: string): string =>
+  heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+describe('the pairing link', () => {
+  test('lands on a heading the install guide still has, as browsentic.com anchors it', () => {
+    const url = new URL(LINKS.pairing);
+    expect(url.origin + url.pathname).toBe('https://browsentic.com/docs/guide/install/');
+    const headings = readFileSync(new URL('../../docs/guide/install.md', import.meta.url), 'utf8')
+      .split('\n')
+      .filter((line) => line.startsWith('## '))
+      .map((line) => siteSlug(line.slice(3)));
+    expect(headings).toContain(url.hash.slice(1));
+  });
+});
 
 describe('the bug report the About page opens', () => {
   test('lands on the bug form with the environment and the agent already filled in', () => {

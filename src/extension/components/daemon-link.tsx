@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 
 import { Button } from '@/extension/components/ui/button';
 import { Input } from '@/extension/components/ui/input';
+import { LINKS } from '@/lib/about';
 import { BRIDGE_CHANNEL, type ActionResult } from '@/lib/actions/protocol';
 import { useDaemonState } from '@/lib/bridge/use-daemon-state';
 
@@ -60,7 +61,15 @@ export function DaemonLink() {
         <>
           <p className="text-[11px] leading-relaxed text-ink-dim">
             Run <code className="rounded bg-surface px-1 py-px font-mono text-ink">browsentic pair</code> in a
-            terminal and paste the code it prints.
+            terminal and paste the code it prints.{' '}
+            <a
+              href={LINKS.pairing}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink underline decoration-line-strong underline-offset-2 transition-colors hover:text-brand"
+            >
+              Learn more
+            </a>
           </p>
           <form
             className="flex gap-1.5"
