@@ -102,8 +102,8 @@ tool cannot run on every visit on the phone, because nothing of Browsentic is in
 
 While the phone tab is in front, the side panel hides what only works in a desktop tab:
 [recordings](recordings.md), [scheduling](scheduling.md), [action cues](action-cues.md) and
-[hands-free](hands-free.md). Voice in the panel, attaching a file and attaching the page's context
-still work. They all come back when you switch to a desktop tab.
+[hands-free](hands-free.md). Voice in the panel and attaching a file still work. They all come back
+when you switch to a desktop tab.
 
 The agent is offered only the tools that work on the phone. Hovering, captchas, downloads,
 uploading a file to a page, recordings, a site's own tools, monitors and diagnostics stay on the

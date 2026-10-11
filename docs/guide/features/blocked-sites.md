@@ -41,7 +41,7 @@ Everything Browsentic could do to a matching page, whoever asked:
 - **Seeing it in passing**: a blocked tab is left out of the agent's tab list, never matched by name,
   and cannot be switched to or closed. A run started from a blocked tab does not send its address.
 - **Your own tools**: [instant commands](instant-commands.md), saved tools, the ones set to run on
-  every visit, [A-Eye](a-eye.md), **Attach page** and [recording](recordings.md) all refuse it too.
+  every visit, [A-Eye](a-eye.md) and [recording](recordings.md) all refuse it too.
 - **Things already running**: a [monitor](monitoring.md) or a [diagnostics](diagnostics.md) capture
   ends when its tab moves onto a blocked site (the capture discards what it collected), a recording
   stops before the blocked page is written into it, and a [scheduled task](scheduling.md) that would

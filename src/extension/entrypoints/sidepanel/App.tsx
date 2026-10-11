@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, PanelRightClose, PictureInPicture2, SlidersHorizontal, SquarePen } from 'lucide-react';
 import { browser } from 'wxt/browser';
 
-import { invokeInActiveTab } from '@/lib/actions/client';
 import { isHandsFreeCommand, isRemoveToolsCommand } from '@/lib/bridge/commands';
-import { getPageInfo } from '@/lib/actions/page/get-page-info';
-import { BRIDGE_CHANNEL, failure, type ActionResult, type FocusedElement } from '@/lib/actions/protocol';
+import { BRIDGE_CHANNEL, type FocusedElement } from '@/lib/actions/protocol';
 import { MAX_STORED_FILE_BYTES } from '@/lib/files/report';
 import { Wordmark } from '@/extension/components/brand';
 import { BLOCKED_HERE, BlockedSiteNote } from '@/extension/components/blocked-site-note';
@@ -260,24 +258,6 @@ export default function App() {
     setPicking(false);
     if ('focus' in outcome) setFocus(outcome.focus);
     else if ('error' in outcome) setAttachError(`A-Eye couldn’t read that element: ${outcome.error}`);
-  }
-
-  async function attachPageContext() {
-    if (blockedHere) {
-      setAttachError(BLOCKED_HERE);
-      return;
-    }
-    const result: ActionResult<{ document: { title: string; url: string }; selection?: string }> = onPhone
-      ? ((await browser.runtime.sendMessage({ channel: BRIDGE_CHANNEL, op: 'invoke', action: getPageInfo.name, input: {} })) ??
-        failure('BRIDGE_ERROR', 'The extension did not answer.'))
-      : await invokeInActiveTab(getPageInfo, {});
-    if (!result.ok) {
-      voice.setInput(`${voice.input}\n[couldn’t read this page: ${result.error.message}]\n`);
-      return;
-    }
-    const { document: doc, selection } = result.data;
-    const snippet = selection ? `\nSelection: “${selection}”` : '';
-    voice.setInput(`${voice.input ? `${voice.input}\n\n` : ''}[Page: ${doc.title} — ${doc.url}${snippet}]\n`);
   }
 
   async function attachFiles(incoming: File[]) {
@@ -553,7 +533,6 @@ export default function App() {
             onToggleVoice={toggleVoice}
             onPick={() => void pointAtElement()}
             onClearFocus={() => setFocus(null)}
-            onAttachPage={() => void attachPageContext()}
             onAttachFile={(file) => void attachFiles([file])}
             onRemoveFile={run.detachFile}
             onRetryFile={run.reanalyzeFile}

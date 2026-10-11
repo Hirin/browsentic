@@ -3,7 +3,6 @@ import {
   CalendarClock,
   Code2,
   FileText,
-  FileUp,
   Loader2,
   Mic,
   MicOff,
@@ -62,7 +61,6 @@ export function Composer({
   onToggleVoice,
   onPick,
   onClearFocus,
-  onAttachPage,
   onAttachFile,
   onRemoveFile,
   onRetryFile,
@@ -97,7 +95,6 @@ export function Composer({
   onToggleVoice: () => void;
   onPick: () => void;
   onClearFocus: () => void;
-  onAttachPage: () => void;
   onAttachFile: (file: File) => void;
   onRemoveFile: (fileId: string) => void;
   onRetryFile: (fileId: string) => void;
@@ -266,22 +263,12 @@ export function Composer({
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Add this page’s title, URL and selection to the message"
-            aria-label="Attach page context"
-            onClick={onAttachPage}
-            disabled={!connected}
-          >
-            <Paperclip className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
             title="Attach a file for the agent to read"
             aria-label="Attach a file"
             onClick={() => fileInputRef.current?.click()}
             disabled={!connected}
           >
-            <FileUp className="size-3.5" />
+            <Paperclip className="size-3.5" />
           </Button>
           <Button
             variant={liveTools ? 'subtle' : 'ghost'}
