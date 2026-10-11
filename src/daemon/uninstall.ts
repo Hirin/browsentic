@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, rmSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
 import { readAgentConfig } from './agent/config';
 import { uploadedSkillsDir } from './agent/skills';
@@ -93,9 +93,14 @@ export interface RemovalOutcome {
   error?: string;
 }
 
+/** A folder reached through a link is somewhere the user chose, so only the link goes. */
 export function removeAll(removals: Removal[]): RemovalOutcome[] {
   return removals.map((removal) => {
     try {
+      if (lstatSync(removal.path).isSymbolicLink()) {
+        rmSync(removal.path, { force: true });
+        return { removal, removed: true, kept: [] };
+      }
       const { kept, refused } = emptying(removal.path, [...(removal.keep ?? []), ...(removal.inUse ? [removal.inUse] : [])]);
       if (refused.length) return { removal, removed: false, kept, error: refused.join('; ') };
       if (!kept.length) rmSync(removal.path, { recursive: true, force: true, ...RETRY });

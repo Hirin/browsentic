@@ -60,10 +60,18 @@ const LINUX_BROWSERS: [string, Family, string, string][] = [
  */
 const WINDOWS_BROWSERS: [string, Family, string, 'LOCALAPPDATA' | 'APPDATA', string][] = [
   ['Chrome', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'Google\\Chrome\\User Data'],
+  ['Chrome Beta', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'Google\\Chrome Beta\\User Data'],
+  ['Chrome Dev', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'Google\\Chrome Dev\\User Data'],
+  ['Chrome Canary', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'Google\\Chrome SxS\\User Data'],
   ['Chrome for Testing', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'Google\\Chrome for Testing\\User Data'],
   ['Chromium', 'chromium', 'Chromium', 'LOCALAPPDATA', 'Chromium\\User Data'],
   ['Edge', 'chromium', 'Microsoft\\Edge', 'LOCALAPPDATA', 'Microsoft\\Edge\\User Data'],
+  ['Edge Beta', 'chromium', 'Microsoft\\Edge', 'LOCALAPPDATA', 'Microsoft\\Edge Beta\\User Data'],
+  ['Edge Dev', 'chromium', 'Microsoft\\Edge', 'LOCALAPPDATA', 'Microsoft\\Edge Dev\\User Data'],
+  ['Edge Canary', 'chromium', 'Microsoft\\Edge', 'LOCALAPPDATA', 'Microsoft\\Edge SxS\\User Data'],
   ['Brave', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'BraveSoftware\\Brave-Browser\\User Data'],
+  ['Brave Beta', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'BraveSoftware\\Brave-Browser-Beta\\User Data'],
+  ['Brave Nightly', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'BraveSoftware\\Brave-Browser-Nightly\\User Data'],
   ['Vivaldi', 'chromium', 'Google\\Chrome', 'LOCALAPPDATA', 'Vivaldi\\User Data'],
   ['Firefox', 'firefox', 'Mozilla', 'APPDATA', 'Mozilla\\Firefox'],
 ];
@@ -280,8 +288,12 @@ export function removeNativeHost(options: HostOptions = {}): string[] {
   for (const target of targets.filter((candidate) => candidate.manifestDir)) {
     const manifest = join(target.manifestDir!, `${NATIVE_HOST_NAME}.json`);
     if (!existsSync(manifest)) continue;
-    rmSync(manifest, { force: true });
-    removed.push(manifest);
+    try {
+      rmSync(manifest, { force: true });
+      removed.push(manifest);
+    } catch {
+      continue;
+    }
   }
   if (existsSync(nativeHostDir)) {
     rmSync(nativeHostDir, { recursive: true, force: true });

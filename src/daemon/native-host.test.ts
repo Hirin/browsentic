@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   NATIVE_HOST_NAME,
@@ -194,6 +194,17 @@ describe('registering the host', () => {
     expect(existsSync(nativeHostDir)).toBe(false);
     expect(registeredBrowsers(linux)).toEqual([]);
   });
+
+  // A read-only folder stands in for one an administrator locked; Windows folders have no such mode.
+  it.skipIf(process.platform === 'win32')('goes on past a manifest it may not delete, so the rest of an uninstall still runs', () => {
+    installNativeHost('/opt/browsentic/dist/cli.js', linux);
+    chmodSync(dirname(manifest), 0o555);
+    try {
+      expect(removeNativeHost(linux)).toEqual([nativeHostDir]);
+    } finally {
+      chmodSync(dirname(manifest), 0o755);
+    }
+  });
 });
 
 describe('registering the host on Windows', () => {
@@ -224,6 +235,16 @@ describe('registering the host on Windows', () => {
     expect([...keys.keys()].sort()).toEqual([key('Google\\Chrome'), key('Microsoft\\Edge')]);
     expect(JSON.parse(readFileSync(keys.get(key('Google\\Chrome'))!, 'utf8'))).toMatchObject({ path: installed.launcher });
     expect(registeredBrowsers(machine)).toEqual(['Edge', 'Brave']);
+  });
+
+  it('registers a Beta, Dev or Canary channel on its own, through the key its browser reads', () => {
+    const machine = windows([profile('Google\\Chrome SxS'), profile('Microsoft\\Edge Beta')]);
+
+    const installed = installNativeHost('C:\\b\\dist\\cli.js', machine);
+
+    expect(installed.browsers).toEqual(['Chrome Canary', 'Edge Beta']);
+    expect([...keys.keys()].sort()).toEqual([key('Google\\Chrome'), key('Microsoft\\Edge')]);
+    expect(registeredBrowsers(machine)).toEqual(['Chrome Canary', 'Edge Beta']);
   });
 
   it('says a browser installed since setup cannot start the daemon yet', () => {

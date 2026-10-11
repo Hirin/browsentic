@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -107,6 +107,14 @@ describe('removing', () => {
   test('a folder with nothing to keep is removed outright', () => {
     removeAll(planUninstall({ keepSkills: true }).removals);
     expect(existsSync(stateDir)).toBe(false);
+  });
+
+  test('a folder reached through a link loses only the link, never what it points at', () => {
+    made(join(outside, 'build'));
+    writeFileSync(join(outside, 'build', 'manifest.json'), '{}');
+    symlinkSync(join(outside, 'build'), join(outside, 'extension'), 'junction');
+    const [extension] = removeAll([{ label: 'extension', path: join(outside, 'extension'), holds: '' }]);
+    expect([extension.removed, existsSync(join(outside, 'extension')), readdirSync(join(outside, 'build'))]).toEqual([true, false, ['manifest.json']]);
   });
 
   test('a removal that fails is reported, not thrown, and the rest still happen', () => {
