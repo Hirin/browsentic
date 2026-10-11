@@ -2,23 +2,23 @@ import { describe, expect, test } from 'vitest';
 import { browserOf, launch, locateBrowsers, sourceFor, storeSteps, storeUrl } from './browsers';
 
 describe('where each browser gets the extension', () => {
-  test('every Chromium browser from the Chrome Web Store, Edge from Edge Add-ons, Firefox the signed add-on', () => {
+  test('every Chromium browser from the Chrome Web Store, Edge included, Firefox the signed add-on', () => {
     expect([sourceFor('chrome'), sourceFor('brave'), sourceFor('edge'), sourceFor('firefox')]).toEqual([
       'chrome-web-store',
       'chrome-web-store',
-      'edge-add-ons',
+      'chrome-web-store',
       'firefox',
     ]);
-    expect(storeUrl('edge', '0.8.0')).toBe('https://microsoftedge.microsoft.com/addons/detail/browsentic/cbkjhkgjcpihokphhdkbahilpcjojpdc');
+    expect(storeUrl('edge', '0.8.0')).toBe('https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp');
     expect(storeUrl('firefox', '0.8.0')).toBe(
       'https://github.com/imshaikot/browsentic/releases/download/v0.8.0/browsentic-0.8.0-firefox.xpi',
     );
   });
 
-  test('Opera is told to add its helper first, and the rest the button they show', () => {
+  test('Opera is told to add its helper first, Edge to allow other stores, and the rest the button they show', () => {
     expect([storeSteps('opera')[0], storeSteps('edge')[0], storeSteps('brave')[0]]).toEqual([
       expect.stringContaining('Install Chrome Extensions'),
-      'Press “Get”.',
+      expect.stringMatching(/^Press “Allow extensions from other stores”.*“Add to Chrome”\.$/),
       'Press “Add to Brave”.',
     ]);
   });

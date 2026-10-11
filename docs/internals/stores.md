@@ -18,7 +18,9 @@ for them. Firefox has no store listing; every GitHub release carries a signed `.
 The IDs are fixed for good, and three places depend on them:
 
 - [`src/lib/stores.ts`](../../src/lib/stores.ts) names them, and says where each browser gets the
-  extension: Edge from Edge Add-ons, every other Chromium browser from the Chrome Web Store.
+  extension: every Chromium browser from the Chrome Web Store, Edge included, because Edge
+  installs from it and Edge Add-ons approves an update far more slowly. The Edge Add-ons listing
+  stays up for anyone who finds it there, and its copies pair and update the same way.
 - The native messaging host lets both store IDs start Browsentic Bridge whether or not they have
   paired yet ([native-host.ts](../../src/daemon/native-host.ts)).
 - The Bridge names each session's source from its origin: a store ID, a `moz-extension://` origin,

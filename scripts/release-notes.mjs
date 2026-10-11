@@ -119,7 +119,7 @@ function renderNotes(version, commits, prevTag) {
     `npx browsentic@${version} setup`,
     '```',
     '',
-    'Press **Add to Chrome** (**Get** in Edge, **Add** in Firefox) on the page it opens, then click Browsentic in the toolbar',
+    'Press **Add to Chrome** (**Add** in Firefox; Edge first asks you to allow extensions from other stores) on the page it opens, then click Browsentic in the toolbar',
     'and enter the pairing code. The apps do the same from their Overview tab. The side panel runs on an agent CLI you are',
     'signed in to: Claude Code, Codex, or another supported one.',
     '',

@@ -23,8 +23,8 @@ With no command it prints usage. Most commands start the Bridge if it is not alr
 | `browsentic uninstall` | Stop the Bridge and remove everything Browsentic wrote |
 
 On a terminal, `setup` checks your agent and asks which browser should get the extension. It opens
-that browser's store page in it (the Chrome Web Store for Chrome, Brave, Arc, Vivaldi, Opera and
-Chromium; Edge Add-ons for Edge; the signed add-on for Firefox), prints a pairing code, and waits
+that browser's store page in it (the Chrome Web Store for Chrome, Edge, Brave, Arc, Vivaldi, Opera
+and Chromium; the signed add-on for Firefox), prints a pairing code, and waits
 up to five minutes for the browser to connect. Ctrl-C stops the wait and undoes nothing. With no
 terminal and no `--browser`, it asks nothing: it prints where each browser gets the extension and a
 code, so a script or an app never hangs on it.

@@ -14,7 +14,7 @@ The extension is on the
 for Chrome, Brave, Arc, Vivaldi and Opera, on
 [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/browsentic/cbkjhkgjcpihokphhdkbahilpcjojpdc)
 for Edge, and Firefox gets an [add-on signed by Mozilla](https://browsentic.com/download/firefox).
-Setup opens the right one for you.
+Setup opens the Chrome Web Store in every Chromium browser, Edge included, and the add-on in Firefox.
 
 ---
 
@@ -74,7 +74,7 @@ extension:
   Which browser should get the extension?
 
      1  Chrome    Chrome Web Store
-     2  Edge      Edge Add-ons
+     2  Edge      Chrome Web Store
      3  Firefox   signed add-on
      4  Another browser: load it unpacked
 
@@ -99,7 +99,7 @@ Setup, or the app's button for that browser, opens Browsentic's store page in it
 | Browser | The page it opens | What to press |
 | --- | --- | --- |
 | Chrome, Brave, Arc, Vivaldi | [Chrome Web Store](https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp) | **Add to Chrome** (in Brave, **Add to Brave**) |
-| Edge | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/browsentic/cbkjhkgjcpihokphhdkbahilpcjojpdc) | **Get** |
+| Edge | [Chrome Web Store](https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp) | **Allow extensions from other stores** in the bar at the top, if Edge shows it, and confirm; then **Add to Chrome**. The [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/browsentic/cbkjhkgjcpihokphhdkbahilpcjojpdc) copy works the same |
 | Opera | [Chrome Web Store](https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp) | Opera first offers its **Install Chrome Extensions** helper: add it, then **Add to Opera** |
 | Firefox 140 or newer | [The signed add-on](https://browsentic.com/download/firefox) | Accept both prompts: one lets github.com install software, one adds Browsentic. See [Firefox](#firefox) |
 | Ungoogled Chromium, a profile that blocks stores, an unreleased build | None: `setup --unpacked` writes a folder | See [Load unpacked](#load-unpacked-advanced) |

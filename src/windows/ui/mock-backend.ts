@@ -166,7 +166,6 @@ const SESSIONS = [
 
 const STORES = {
   'chrome-web-store': { store: 'Chrome Web Store', storeUrl: 'https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp' },
-  'edge-add-ons': { store: 'Edge Add-ons', storeUrl: 'https://microsoftedge.microsoft.com/addons/detail/browsentic/cbkjhkgjcpihokphhdkbahilpcjojpdc' },
   firefox: { store: 'Firefox add-on', storeUrl: 'https://github.com/imshaikot/browsentic/releases/download/v0.8.0/browsentic-0.8.0-firefox.xpi' },
 };
 
@@ -174,7 +173,7 @@ function rows(): BrowserRow[] {
   const row = (id: BrowserRow['id'], label: string, brand: string, installed: boolean): BrowserRow => {
     const sessions = SESSIONS.filter((session) => session.browser === brand).map(({ id, source, extensionVersion, connected }) => ({ id, source, extensionVersion, connected }));
     const firefox = id === 'firefox';
-    const source = firefox ? 'firefox' : id === 'edge' ? 'edge-add-ons' : 'chrome-web-store';
+    const source = firefox ? 'firefox' : 'chrome-web-store';
     return {
       id,
       label,
@@ -184,7 +183,9 @@ function rows(): BrowserRow[] {
       steps: [
         firefox
           ? 'Firefox asks whether to let github.com install software, then whether to add Browsentic. Say yes to both.'
-          : `Press “${id === 'edge' ? 'Get' : label === 'Brave' ? 'Add to Brave' : 'Add to Chrome'}”.`,
+          : id === 'edge'
+            ? 'Press “Allow extensions from other stores” if Edge shows it at the top of the page, confirm, and press “Add to Chrome”.'
+            : `Press “${label === 'Brave' ? 'Add to Brave' : 'Add to Chrome'}”.`,
       ],
       extensionsPage: firefox ? 'about:addons' : `${id === 'edge' ? 'edge' : id === 'brave' ? 'brave' : 'chrome'}://extensions`,
       connected: sessions.some((session) => session.connected),

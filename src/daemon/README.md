@@ -17,8 +17,8 @@ npx browsentic@latest setup
 ```
 
 It starts Browsentic Bridge, asks which browser you use, opens the extension's store page there,
-prints a pairing code and waits for the browser to connect. Press **Add to Chrome** (**Get** in
-Edge, **Add** in Firefox), click Browsentic in the toolbar and enter the code, once. On macOS and Windows an app does
+prints a pairing code and waits for the browser to connect. Press **Add to Chrome** (**Add** in
+Firefox; Edge first asks you to allow extensions from other stores), click Browsentic in the toolbar and enter the code, once. On macOS and Windows an app does
 the same from a window: see [browsentic.com/install](https://browsentic.com/install/).
 
 The extension is on the

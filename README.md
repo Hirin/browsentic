@@ -68,7 +68,7 @@ irm https://browsentic.com/install.ps1 | iex
 npx browsentic@latest setup
 ```
 
-Setup asks which browser you use and opens Browsentic's store page in it (the apps do the same from their Overview tab). Press **Add to Chrome** (**Get** in Edge, **Add** in Firefox), then click Browsentic in the toolbar and enter the code setup shows. From then on the extension updates itself from its store.
+Setup asks which browser you use and opens Browsentic's store page in it (the apps do the same from their Overview tab). Press **Add to Chrome** (**Add** in Firefox; Edge first asks you to allow extensions from other stores), then click Browsentic in the toolbar and enter the code setup shows. From then on the extension updates itself from its store.
 
 The extension is on the Chrome Web Store for Chrome, Brave, Arc, Vivaldi and Opera, on Edge Add-ons for Edge, and Firefox gets an add-on signed by Mozilla:
 

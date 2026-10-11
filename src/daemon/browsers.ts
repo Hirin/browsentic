@@ -8,7 +8,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { posix } from 'node:path';
-import { CHROME_WEB_STORE, EDGE_ADD_ONS, SOURCE_LABEL, type Source } from '@/lib/stores';
+import { CHROME_WEB_STORE, SOURCE_LABEL, type Source } from '@/lib/stores';
 import type { SessionSummary } from './control';
 import { signedAddonUrl } from './firefox-addon';
 
@@ -44,7 +44,7 @@ export const BROWSERS: Record<BrowserId, BrowserEntry> = {
     label: 'Edge',
     brand: /Edge/i,
     extensionsPage: 'edge://extensions',
-    button: 'Get',
+    button: 'Add to Chrome',
     mac: 'Microsoft Edge.app',
     linux: ['microsoft-edge', 'microsoft-edge-stable'],
     windows: ['msedge.exe', 'Microsoft\\Edge\\Application\\msedge.exe'],
@@ -103,21 +103,22 @@ export const BROWSERS: Record<BrowserId, BrowserEntry> = {
   },
 };
 
+/** Edge included: it installs from the Chrome Web Store, which approves updates far sooner than Edge Add-ons. */
 export function sourceFor(id: BrowserId): Source {
-  if (id === 'firefox') return 'firefox';
-  return id === 'edge' ? 'edge-add-ons' : 'chrome-web-store';
+  return id === 'firefox' ? 'firefox' : 'chrome-web-store';
 }
 
 export function storeUrl(id: BrowserId, version: string): string {
-  const source = sourceFor(id);
-  if (source === 'firefox') return signedAddonUrl(version);
-  return source === 'edge-add-ons' ? EDGE_ADD_ONS.url : CHROME_WEB_STORE.url;
+  return sourceFor(id) === 'firefox' ? signedAddonUrl(version) : CHROME_WEB_STORE.url;
 }
 
 /** What to press once the page is open, in that browser's own words. */
 export function storeSteps(id: BrowserId): string[] {
   if (id === 'firefox') {
     return ['Firefox asks whether to let github.com install software, then whether to add Browsentic. Say yes to both.'];
+  }
+  if (id === 'edge') {
+    return ['Press “Allow extensions from other stores” if Edge shows it at the top of the page, confirm, and press “Add to Chrome”.'];
   }
   if (id === 'opera') {
     return ['Opera first offers its “Install Chrome Extensions” helper: add it, then press “Add to Opera”.'];

@@ -686,8 +686,6 @@ function printPlan(rows: BrowserRow[], sessions: SessionSummary[], folderVersion
   const store = (id: BrowserId) => rows.find((row) => row.id === id)!;
   console.log(`    ${chromeWebStore.join(', ')}`);
   console.log(`      ${store('chrome').storeUrl}`);
-  console.log(`    Edge`);
-  console.log(`      ${store('edge').storeUrl}`);
   console.log(`    Firefox`);
   console.log(`      ${store('firefox').storeUrl}\n`);
   const [enter, ...rest] = codeLines(code);
