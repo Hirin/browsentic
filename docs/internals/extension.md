@@ -520,7 +520,8 @@ by the browser, until the next browser start. Chrome records this in `Secure Pre
 
 `extension-update.ts` holds the update for the panel instead. `runtime.onUpdateAvailable` gives the
 held version, which goes to `storage.session` under `browsentic/waitingUpdate`. The panel shows the
-pill above the prompt while that version is newer than the one running and no run is going.
+pill above the prompt while that version is newer than the one running, and while no conversation
+has a run going and nothing is being recorded, since a reload ends them all.
 **Update** calls `runtime.reload()`, which installs the held update at once (Chromium's
 `ExtensionRegistrar` finishes a delayed install on reload). A reload closes the side panel and
 every extension page, and clears `storage.session`.
@@ -533,12 +534,14 @@ store names a version, before the download, so the pill waits for `onUpdateAvail
 trusting that answer. A Bridge-only release finds nothing and shows nothing.
 
 Firefox applies an update at once when nothing listens to `onUpdateAvailable`, mid-run included.
-The listener makes it wait for the pill too.
+The listener makes it wait for the pill too. Firefox has no `requestUpdateCheck`, so it finds an
+update only on its own daily check.
 
 An unpacked copy has no store. Its files are read from the folder the Bridge rewrites, so on a
 newer Bridge the worker fetches `/manifest.json`, which reports the version on disk, not the one
 loaded. If that is newer, it is held the same way, and **Update** reloads the extension from the
-folder.
+folder. `browsentic update` and the apps restart the Bridge before they rewrite the folder, so the
+welcome often comes too early; the panel reads the manifest again whenever it opens or gets focus.
 
 ---
 

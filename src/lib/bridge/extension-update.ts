@@ -27,17 +27,25 @@ export function serveExtensionUpdates(): void {
 
 export async function followBridge(daemonVersion: string): Promise<void> {
   if (!isNewer(daemonVersion, runningVersion())) return;
-  const { installType } = await browser.management.getSelf();
-  if (installType === 'development') {
-    const rebuilt = asWaitingVersion(await unpackedVersion());
-    if (rebuilt) await hold(rebuilt);
-    return;
-  }
+  if (await isUnpacked()) return holdRebuild();
+  if (import.meta.env.FIREFOX) return;
   // The browser grants one check every few hours, so each newer Bridge spends it once.
   const checked = await browser.storage.session.get(CHECKED_FOR_KEY);
   if (checked[CHECKED_FOR_KEY] === daemonVersion) return;
   await browser.storage.session.set({ [CHECKED_FOR_KEY]: daemonVersion });
   await browser.runtime.requestUpdateCheck().catch(() => undefined);
+}
+
+/** The Bridge restarts before it rewrites an unpacked folder, so its welcome can come too early to see the new build. */
+export async function lookForRebuild(): Promise<void> {
+  if (await isUnpacked()) await holdRebuild();
+}
+
+const isUnpacked = async () => (await browser.management.getSelf()).installType === 'development';
+
+async function holdRebuild(): Promise<void> {
+  const rebuilt = asWaitingVersion(await unpackedVersion());
+  if (rebuilt) await hold(rebuilt);
 }
 
 /** An unpacked copy reads its files from the folder the Bridge rewrites, so the manifest there names the build a reload loads. */

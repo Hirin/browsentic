@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { WAITING_UPDATE_KEY, asWaitingVersion, restartIntoUpdate } from './extension-update';
+import { WAITING_UPDATE_KEY, asWaitingVersion, lookForRebuild, restartIntoUpdate } from './extension-update';
 
 export interface WaitingUpdateView {
   version: string | null;
@@ -22,9 +22,13 @@ export function useWaitingUpdate(): WaitingUpdateView {
       if (WAITING_UPDATE_KEY in changes) setWaiting(asWaitingVersion(changes[WAITING_UPDATE_KEY].newValue));
     };
     browser.storage.session.onChanged.addListener(listener);
+    const look = () => void lookForRebuild();
+    look();
+    window.addEventListener('focus', look);
     return () => {
       live = false;
       browser.storage.session.onChanged.removeListener(listener);
+      window.removeEventListener('focus', look);
     };
   }, []);
 

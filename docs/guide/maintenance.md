@@ -14,7 +14,7 @@ working whether it updates first or last.
 | What | How |
 | --- | --- |
 | The extension from the Chrome Web Store or Edge Add-ons | The browser downloads the update when it checks, every few hours, or as soon as the Bridge is newer than the extension. It holds it until the extension restarts, so the side panel says the new version is ready above the prompt; press **Update**. Restarting the browser installs it too |
-| The Firefox add-on | Every release publishes a signed `.xpi` and an `updates.json` beside it. Firefox polls that file about once a day, or as soon as the Bridge is newer, and **Check for Updates** in `about:addons` polls it now. The update then waits for **Update** in the side panel, or the next Firefox start |
+| The Firefox add-on | Every release publishes a signed `.xpi` and an `updates.json` beside it. Firefox polls that file about once a day, and **Check for Updates** in `about:addons` polls it now. The update then waits for **Update** in the side panel, or the next Firefox start |
 | Browsentic Bridge, from the Mac or Windows app | The app's **Update now** card ([macOS](mac-app.md#updating), [Windows](windows-app.md#updating)) |
 | Browsentic Bridge, from `npx` or `npm` | `browsentic update`, below |
 | An unpacked copy | `browsentic update` rewrites the folder, then press **Update** in the side panel, or ↻ on its card |

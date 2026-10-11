@@ -474,7 +474,7 @@ export default function App() {
 
       {tab === 'chat' && (
         <footer className="shrink-0 border-t border-line p-3">
-          {update.version && !run.running && (
+          {update.version && runningCount === 0 && !run.recording && (
             <UpdatePill version={update.version} onUpdate={update.restart} onLater={update.later} />
           )}
           {blockedHere && <BlockedSiteNote pattern={blockedHere} />}
