@@ -1,4 +1,4 @@
-https://github.com/user-attachments/assets/e9f146d3-cb14-416e-b8d7-68c4e81cbd0d
+https://github.com/user-attachments/assets/21c9fb4d-6068-4091-9ab8-8650fe36a10d
 
 <div align="center">
 
@@ -135,6 +135,14 @@ Any MCP client ──stdio──> browsentic mcp ──> the same Bridge ──>
 </details>
 
 The extension dials out to Browsentic Bridge, because a Manifest V3 service worker cannot listen for connections. One Bridge owns the browser link, so several MCP clients can share one browser. Everything binds to `127.0.0.1`.
+
+## Side Panel and Desktop Apps
+
+![The side panel in Chrome partway through a run, waiting for approval to send a reminder; the Mac app's Overview and its one-click setup; the Windows app's agent picker and its Android phone checks](docs/assets/side-panel-and-apps.webp)
+
+The [side panel](docs/guide/features/conversations.md) is where you work with the agent. Every page action shows up as a step, and consequential ones, such as submitting a form, wait for your [approval](docs/guide/approvals.md).
+
+The desktop apps for [macOS](docs/guide/mac-app.md) and [Windows](docs/guide/windows-app.md) ([experimental](docs/guide/limits.md#windows-is-experimental)) install Node and Browsentic Bridge in one click, turn the Bridge on and off, add the extension to each browser, pick the [agent CLI](docs/guide/agents.md) and its model, and check an [Android phone](docs/guide/features/android.md) before the side panel drives it.
 
 ## Resources
 
