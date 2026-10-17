@@ -316,7 +316,9 @@ What both lines share:
   sessions, and Browsentic runs keep a database apart from yours, so your own sign-in does not carry
   over. The agent picker shows the one line to run, which signs that database in; on macOS and Linux
   it is `OPENCODE_DB="$HOME/.browsentic/agents/opencode/opencode-2.db" opencode auth login --standalone`.
-  An `OPENCODE_API_KEY` in the environment, or a provider in your config, counts too.
+  On Windows the line is for PowerShell, and it puts the window's own `OPENCODE_DB` back once the
+  sign-in ends, so OpenCode run there afterwards still opens your database. An `OPENCODE_API_KEY` in
+  the environment, or a provider in your config, counts too.
 - **Your sessions and your background service are never touched.** Every run starts its own private
   OpenCode server rather than the shared one, so a run is never added to your session list and your
   service never picks one up.

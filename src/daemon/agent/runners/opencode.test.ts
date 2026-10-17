@@ -606,9 +606,12 @@ describe('OpenCode 2 readiness', () => {
     expect(await problem('/nonexistent/opencode')).toBeNull();
   });
 
-  test('the sign-in line points OpenCode at that database, quoted for the shell it runs in', () => {
+  test('the sign-in line points OpenCode at that database, quoted for the shell it runs in, and leaves a PowerShell window as it was', () => {
     expect(signInLine('opencode', 'darwin')).toBe(`OPENCODE_DB='${db}' opencode auth login --standalone`);
     expect(signInLine("/Users/o'neil/bin/opencode 2", 'darwin')).toBe(`OPENCODE_DB='${db}' '/Users/o'\\''neil/bin/opencode 2' auth login --standalone`);
-    expect(signInLine('C:\\Program Files\\opencode.cmd', 'win32')).toBe(`$env:OPENCODE_DB='${db}'; & 'C:\\Program Files\\opencode.cmd' auth login --standalone`);
+    expect(signInLine("C:\\Users\\o'neil\\opencode.cmd", 'win32')).toBe(
+      `$before = $env:OPENCODE_DB; $env:OPENCODE_DB = '${db.replaceAll("'", "''")}'; ` +
+        `try { & 'C:\\Users\\o''neil\\opencode.cmd' auth login --standalone } finally { $env:OPENCODE_DB = $before }`,
+    );
   });
 });

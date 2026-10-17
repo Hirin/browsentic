@@ -430,10 +430,17 @@ function scratchReads(workspace: string): Record<string, string> {
   }
 }
 
-/** The command that signs Browsentic's own OpenCode 2 database in, in the user's shell. */
+/**
+ * The command that signs Browsentic's own OpenCode 2 database in, in the user's shell. PowerShell has
+ * no variable for one command, so its line puts back what the window had: the user's own `opencode`
+ * there would otherwise open this database, and start their background service on it.
+ */
 export function signInLine(bin: string, platform: NodeJS.Platform = process.platform): string {
   const db = database2();
-  if (platform === 'win32') return `$env:OPENCODE_DB='${db.replaceAll("'", "''")}'; & '${bin.replaceAll("'", "''")}' auth login --standalone`;
+  if (platform === 'win32') {
+    const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
+    return `$before = $env:OPENCODE_DB; $env:OPENCODE_DB = ${literal(db)}; try { & ${literal(bin)} auth login --standalone } finally { $env:OPENCODE_DB = $before }`;
+  }
   const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
   return `OPENCODE_DB=${quote(db)} ${/^[\w./-]+$/.test(bin) ? bin : quote(bin)} auth login --standalone`;
 }
