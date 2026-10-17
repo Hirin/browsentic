@@ -57,8 +57,10 @@ of Browsentic, the side panel included.
 To keep Browsentic and get Chrome's own new tab page back, choose **Keep it**, then switch Home off
 as above. If Browsentic was switched off already, turn it back on at `chrome://extensions`.
 
-Firefox shows a notice of its own the first time. Keep the change there too; with Home switched
-off, Firefox shows the plain page of frequent sites.
+Firefox says *Your new tab has changed* the first time. **Keep Changes** keeps Browsentic and Home.
+**Manage New Tabs** opens Firefox's Home settings, where **Disable Extension** switches off all of
+Browsentic. To keep Browsentic, switch Home off as above instead; Firefox then shows the plain page
+of frequent sites.
 
 ## Where it stops
 
