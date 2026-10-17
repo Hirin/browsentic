@@ -244,11 +244,16 @@ export function remapTab(from: number, to: number): Promise<void> {
   });
 }
 
+/** A site's host. Browsentic's own pages have none: Chrome hides their address, and Firefox shows the extension's id where a host would be. */
 export function hostOf(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
-    return new URL(url).host || undefined;
+    const { protocol, host } = new URL(url);
+    return /^https?:$/.test(protocol) ? host || undefined : undefined;
   } catch {
     return undefined;
   }
 }
+
+/** The page a turn is about, as the Bridge scopes the run: a site, or nowhere in particular, as on a blank tab. */
+export const siteUrlOf = (url: string | undefined): string | undefined => (hostOf(url) ? url : undefined);
