@@ -91,6 +91,7 @@ import {
   remapTab,
   sessionForRun,
   sessionForTab,
+  siteUrlOf,
   type Ensured,
   type TabAnchor,
   type TabSession,
@@ -618,7 +619,7 @@ async function startTurn(
     const current = await browser.tabs.get(session.currentTabId).catch(() => null);
     const hidden = await siteBlocked(session.url, ...tabUrls(current), focus?.url);
     const runId = sendInstruction(text, {
-      url: hidden ? undefined : session.url,
+      url: hidden ? undefined : siteUrlOf(session.url),
       tabId: session.currentTabId,
       sessionId,
       agent: session.agent,

@@ -3,6 +3,7 @@ import { Check, SlidersHorizontal } from 'lucide-react';
 import { browser } from 'wxt/browser';
 
 import { Switch } from '@/extension/components/ui/switch';
+import { browserOwnNewTab } from '@/lib/bridge/new-tab';
 import { useTheme } from '@/lib/bridge/use-theme';
 import type { NewTabChoice } from '@/lib/settings/new-tab';
 import { THEMES } from '@/lib/settings/theme';
@@ -73,7 +74,14 @@ export function HomeCustomize({
         >
           <Switch checked={choice.sites} label="Show frequent sites" onChange={(sites) => onChange({ ...choice, sites })} />
         </Toggle>
-        <Toggle title="Browsentic Home" note="Off, new tabs open the browser’s own page again.">
+        <Toggle
+          title="Browsentic Home"
+          note={
+            browserOwnNewTab()
+              ? 'Off, new tabs open Chrome’s own page again.'
+              : 'Off, new tabs show a plain page of your frequent sites. This browser keeps its own new tab page out of an extension’s reach.'
+          }
+        >
           <Switch checked label="Open Browsentic Home on new tabs" onChange={onTurnOff} />
         </Toggle>
       </div>
