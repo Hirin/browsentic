@@ -207,8 +207,9 @@ that speaks 24; the Bridge sends `openNotice` only to an extension that speaks 2
 | `openNotice` | Bridge | `noticeId`: someone clicked it in the app, so the extension brings that notice's tab to the front |
 
 The app sends `/control` `notices {watch:true, allowed}` on every socket and again when the
-computer starts or stops letting it notify; `notices-changed` tells it to call `takeNotices`, which
-hands over and forgets what is waiting (a notice nobody takes within five minutes is dropped). A click
+computer starts or stops letting it notify (`watch:false` lets go); `notices-changed` tells it to
+call `takeNotices`, which hands over and forgets what is waiting (a notice nobody takes within five
+minutes is dropped). Only a watcher that said `allowed` is told, and only it is handed anything. A click
 sends `openNotice`, which reaches the browser the notice came from. Agent-run connections are refused
 all three. Nothing about a notice is written to disk.
 

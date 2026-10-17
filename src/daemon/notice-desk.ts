@@ -15,10 +15,12 @@ export interface NoticeDesk {
   watch(watcher: object, allowed: boolean): void;
   unwatch(watcher: object): void;
   canShow(): boolean;
-  watchers(): object[];
+  /** The watchers that may show notices, the only ones told about a new one. */
+  showers(): object[];
   /** True when an app will show it. */
   offer(notice: DeviceNotice, from: { id: string; browser?: string }): boolean;
-  take(): QueuedNotice[];
+  /** What is waiting, for a watcher that may show it; any other caller gets nothing and leaves it waiting. */
+  take(watcher: object): QueuedNotice[];
   /** The browser a notice came from. */
   routeOf(noticeId: string): string | undefined;
 }
@@ -34,7 +36,7 @@ export function noticeDesk({ changed, now = Date.now }: { changed: () => void; n
     watch: (watcher, allowed) => void allowedBy.set(watcher, allowed),
     unwatch: (watcher) => void allowedBy.delete(watcher),
     canShow,
-    watchers: () => [...allowedBy.keys()],
+    showers: () => [...allowedBy].filter(([, allowed]) => allowed).map(([watcher]) => watcher),
     offer(notice, from) {
       if (!canShow()) return false;
       queue = [...queue.filter((queued) => queued.id !== notice.id), { ...notice, browser: from.browser, at: now() }].slice(-QUEUE_MAX);
@@ -44,7 +46,8 @@ export function noticeDesk({ changed, now = Date.now }: { changed: () => void; n
       changed();
       return true;
     },
-    take() {
+    take(watcher) {
+      if (!allowedBy.get(watcher)) return [];
       const fresh = queue.filter((queued) => now() - queued.at < KEEP_MS);
       queue = [];
       return fresh;

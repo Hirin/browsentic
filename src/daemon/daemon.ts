@@ -267,7 +267,7 @@ export async function startDaemon({ version, idleExit = true, android = androidO
 
   const notices = noticeDesk({
     changed: () => {
-      for (const ws of notices.watchers()) send(ws as WebSocket, { event: 'notices-changed' });
+      for (const ws of notices.showers()) send(ws as WebSocket, { event: 'notices-changed' });
     },
   });
 
@@ -1017,10 +1017,11 @@ export async function startDaemon({ version, idleExit = true, android = androidO
           return send(ws, { id: request.id, op: request.op, ok: false });
         }
         if (request.op === 'notices') {
-          if (request.watch) notices.watch(ws, request.allowed === true);
+          if (request.watch === false) notices.unwatch(ws);
+          else if (request.watch) notices.watch(ws, request.allowed === true);
           return send(ws, { id: request.id, op: 'notices', ok: true });
         }
-        if (request.op === 'takeNotices') return send(ws, { id: request.id, op: 'takeNotices', notices: notices.take() });
+        if (request.op === 'takeNotices') return send(ws, { id: request.id, op: 'takeNotices', notices: notices.take(ws) });
         const route = typeof request.notice === 'string' ? notices.routeOf(request.notice) : undefined;
         const link = route ? links.get(route) : undefined;
         const ok = !!link?.isOpen && link.speaks(NOTICE_PROTOCOL);
