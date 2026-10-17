@@ -82,6 +82,16 @@ pub fn enabled(app_id: &str) -> bool {
     windows_toasts::enabled(app_id).unwrap_or(false)
 }
 
+/// Only the copy a click started may bring a window forward, and the browser has the tab to bring back.
+#[cfg(windows)]
+pub fn yield_foreground() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY};
+    unsafe { AllowSetForegroundWindow(ASFW_ANY) };
+}
+
+#[cfg(not(windows))]
+pub fn yield_foreground() {}
+
 #[cfg(not(windows))]
 pub fn post(_: &str, _: &str, _: Option<(&str, &str)>) {}
 

@@ -304,6 +304,9 @@ fn main() {
     if std::env::args().any(|arg| arg == "--uninstall") {
         return prepare_uninstall();
     }
+    if std::env::args().any(|arg| notices::parse(&arg).is_some()) {
+        toast::yield_foreground();
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| second_launch(app, args)))
         .plugin(tauri_plugin_deep_link::init())

@@ -92,8 +92,11 @@ final class PairingAlerts: NSObject, UNUserNotificationCenterDelegate {
     /// Whether the app can post right now, asking once if nobody has decided yet. Never true outside an app bundle.
     @MainActor func mayNotify() async -> Bool {
         guard let center else { return false }
-        let status = await center.notificationSettings().authorizationStatus
-        guard status == .notDetermined, !askedForPermission else { return NoticeWatch.allows(status) }
+        let settings = await center.notificationSettings()
+        let visible = settings.alertStyle != .none || settings.notificationCenterSetting == .enabled
+        guard settings.authorizationStatus == .notDetermined, !askedForPermission else {
+            return NoticeWatch.allows(settings.authorizationStatus, visible: visible)
+        }
         askedForPermission = true
         return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
     }

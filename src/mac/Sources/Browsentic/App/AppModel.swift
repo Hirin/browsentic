@@ -110,6 +110,7 @@ final class AppModel: ObservableObject {
     private var seenPairings: Set<String>?
     /// What this socket was last told about notification permission; nil until it is told.
     private var noticesReported: Bool?
+    private var reportingNotices = false
 
     var cli: CLI? { node.map(CLI.init) }
     var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? Payload.bundledVersion ?? "dev" }
@@ -312,7 +313,7 @@ final class AppModel: ObservableObject {
             stamp = ExtensionFiles.stamp()
             if changed { Task { await loadBrowsers() } }
             if status.pairing != nil { await loadPairRequests() }
-            await reportNotices()
+            Task { await self.reportNotices() }
         } catch {
             await control.close()
             markOff()
@@ -465,8 +466,11 @@ final class AppModel: ObservableObject {
     // MARK: Browser notices
 
     /// Tells the Bridge whether this app can show a browser's notices, again only when that changes.
+    /// Never awaited by the poll: the first time, it waits for the person to answer macOS's prompt.
     func reportNotices() async {
-        guard NoticeWatch.supported(by: status) else { return }
+        guard !reportingNotices, NoticeWatch.supported(by: status) else { return }
+        reportingNotices = true
+        defer { reportingNotices = false }
         let allowed = await PairingAlerts.shared.mayNotify()
         guard NoticeWatch.needsReport(allowed: allowed, reported: noticesReported),
               (try? await control.notices(allowed: allowed)) != nil
@@ -484,7 +488,7 @@ final class AppModel: ObservableObject {
     /// this app active, and since macOS 14 another app comes forward only when the active one yields to it.
     func openNotice(_ id: String, from browser: String?) async {
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        if let app = BrowserApps.running(for: browser, among: running) {
+        for app in BrowserApps.yielded(for: browser, among: running) {
             NSApp.yieldActivation(toApplicationWithBundleIdentifier: app)
         }
         if status == nil {
@@ -495,6 +499,9 @@ final class AppModel: ObservableObject {
             try await control.openNotice(id)
         } catch {
             Self.log.notice("openNotice \(id, privacy: .public) from \(browser ?? "an unnamed browser", privacy: .public) was not delivered: \(error.localizedDescription, privacy: .public)")
+            if let app = BrowserApps.named(browser, among: running).first {
+                NSRunningApplication.runningApplications(withBundleIdentifier: app).first?.activate()
+            }
         }
     }
 

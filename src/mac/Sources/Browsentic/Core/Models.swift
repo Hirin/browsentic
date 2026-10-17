@@ -161,7 +161,8 @@ enum NoticeWatch {
 
     static func supported(by status: BridgeStatus?) -> Bool { (status?.protocolVersion ?? 0) >= protocolVersion }
 
-    static func allows(_ status: UNAuthorizationStatus) -> Bool { status == .authorized || status == .provisional }
+    /// Allowed, and somewhere to appear: with alerts off and Notification Center off a notice shows nowhere.
+    static func allows(_ status: UNAuthorizationStatus, visible: Bool) -> Bool { (status == .authorized || status == .provisional) && visible }
 
     /// Nil `reported` is a socket that has not been told yet.
     static func needsReport(allowed: Bool, reported: Bool?) -> Bool { reported != allowed }
@@ -183,6 +184,11 @@ enum BrowserApps {
         "Vivaldi": ["com.vivaldi.Vivaldi"],
         "Arc": ["company.thebrowser.Browser"],
         "Firefox": ["org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"],
+        "Google Chrome for Testing": ["com.google.chrome.for.testing"],
+        "Zen": ["app.zen-browser.zen"],
+        "LibreWolf": ["io.gitlab.librewolf-community"],
+        "Waterfox": ["net.waterfox.waterfox"],
+        "Floorp": ["one.ablaze.floorp"],
     ]
 
     static func candidates(for brand: String?) -> [String] {
@@ -190,9 +196,16 @@ enum BrowserApps {
         return bundleIds.first { $0.key.caseInsensitiveCompare(brand) == .orderedSame }?.value ?? []
     }
 
-    /// The running app the notice came from; an unknown brand, or none of its apps running, names nothing.
-    static func running(for brand: String?, among running: Set<String>) -> String? {
-        candidates(for: brand).first(where: running.contains)
+    /// The running apps of the brand the notice came from; an unknown brand, or none of its apps running, names none.
+    static func named(_ brand: String?, among running: Set<String>) -> [String] {
+        candidates(for: brand).filter(running.contains)
+    }
+
+    /// Those, or every running browser when they are none, since Vivaldi and Arc report no brand of their own:
+    /// only the browser the notice came from asks to come forward.
+    static func yielded(for brand: String?, among running: Set<String>) -> [String] {
+        let named = named(brand, among: running)
+        return named.isEmpty ? bundleIds.values.flatMap { $0 }.filter(running.contains).sorted() : named
     }
 }
 

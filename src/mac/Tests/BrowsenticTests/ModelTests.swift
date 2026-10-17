@@ -436,11 +436,12 @@ import Testing
         #expect(NoticeWatch.needsReport(allowed: false, reported: true))
     }
 
-    @Test func onlyAGrantedPermissionLetsTheAppShowNotices() {
-        #expect(NoticeWatch.allows(.authorized))
-        #expect(NoticeWatch.allows(.provisional))
-        #expect(!NoticeWatch.allows(.denied))
-        #expect(!NoticeWatch.allows(.notDetermined))
+    @Test func onlyAGrantedPermissionWithSomewhereToAppearLetsTheAppShowNotices() {
+        #expect(NoticeWatch.allows(.authorized, visible: true))
+        #expect(NoticeWatch.allows(.provisional, visible: true))
+        #expect(!NoticeWatch.allows(.authorized, visible: false))
+        #expect(!NoticeWatch.allows(.denied, visible: true))
+        #expect(!NoticeWatch.allows(.notDetermined, visible: true))
     }
 
     @Test func aRepeatOfTheSameEventReplacesItsNotification() {
@@ -465,16 +466,22 @@ import Testing
         #expect(Set(ids).count == ids.count)
     }
 
-    @Test func theRunningChannelIsTheOneThatComesForward() {
-        #expect(BrowserApps.running(for: "Google Chrome", among: ["com.google.Chrome.canary", "com.apple.Safari"]) == "com.google.Chrome.canary")
-        #expect(BrowserApps.running(for: "Google Chrome", among: ["com.google.Chrome", "com.google.Chrome.beta"]) == "com.google.Chrome")
-        #expect(BrowserApps.running(for: "microsoft edge", among: ["com.microsoft.edgemac.Dev"]) == "com.microsoft.edgemac.Dev")
+    @Test func everyRunningChannelOfTheBrandMayComeForward() {
+        #expect(BrowserApps.yielded(for: "Google Chrome", among: ["com.google.Chrome.canary", "com.apple.Safari"]) == ["com.google.Chrome.canary"])
+        #expect(BrowserApps.yielded(for: "Google Chrome", among: ["com.google.Chrome", "com.google.Chrome.beta"]) == ["com.google.Chrome", "com.google.Chrome.beta"])
+        #expect(BrowserApps.yielded(for: "microsoft edge", among: ["com.microsoft.edgemac.Dev"]) == ["com.microsoft.edgemac.Dev"])
     }
 
-    @Test func anUnknownBrandOrABrowserNotRunningYieldsToNothing() {
-        #expect(BrowserApps.running(for: "Netscape", among: ["com.google.Chrome"]) == nil)
-        #expect(BrowserApps.running(for: nil, among: ["com.google.Chrome"]) == nil)
-        #expect(BrowserApps.running(for: "chrome-extension://abc", among: ["com.google.Chrome"]) == nil)
-        #expect(BrowserApps.running(for: "Brave", among: ["com.google.Chrome"]) == nil)
+    @Test func aBrandThatNamesNoRunningAppLetsEveryRunningBrowserComeForward() {
+        let running: Set<String> = ["com.vivaldi.Vivaldi", "company.thebrowser.Browser", "com.apple.Safari"]
+        #expect(BrowserApps.yielded(for: "Chromium", among: running) == ["com.vivaldi.Vivaldi", "company.thebrowser.Browser"])
+        #expect(BrowserApps.yielded(for: nil, among: ["com.google.chrome.for.testing"]) == ["com.google.chrome.for.testing"])
+        #expect(BrowserApps.yielded(for: "Netscape", among: ["com.apple.Safari"]) == [])
+    }
+
+    @Test func onlyTheBrandItselfIsBroughtUpWhenTheClickCannotReachItsTab() {
+        #expect(BrowserApps.named("Brave", among: ["com.brave.Browser", "com.google.Chrome"]) == ["com.brave.Browser"])
+        #expect(BrowserApps.named("chrome-extension://abc", among: ["com.google.Chrome"]) == [])
+        #expect(BrowserApps.named(nil, among: ["com.google.Chrome"]) == [])
     }
 }
