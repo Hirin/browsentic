@@ -589,7 +589,9 @@ A finished monitor, scheduled task or reminder first asks `noticeOnDevice()` in 
 While no browser window is focused and un-minimized, it sends the notice to the Bridge for the
 Browsentic app to show as the computer's own notification; a card on a page nobody is looking at
 helps no one. When the app takes it, the notice's tab is remembered in `storage.session` under
-`browsentic/noticeTabs` (the newest 30), and a click in the app brings that tab to the front. When
+`browsentic/noticeTabs` (the newest 30), and a click in the app brings that tab to the front,
+restoring a minimized window first in Chromium; Firefox's focus restores it as it was, where its
+`state: "normal"` would also undo a maximize. When
 it does not (the browser in front, no app, notifications off, a Bridge before protocol 24), the
 caller goes on to its card or the browser's own notification, as before.
 

@@ -33,6 +33,7 @@ function windows(list: Window[], tabs: { id: number; windowId: number }[] = []):
 
 beforeEach(() => {
   fakeBrowser.reset();
+  vi.stubEnv('FIREFOX', '');
   socket.sendNotice.mockReset();
   toast.goToTab.mockReset();
 });
@@ -74,6 +75,31 @@ describe('noticeOnDevice', () => {
     await vi.waitFor(() => expect(toast.goToTab).toHaveBeenCalledWith(7));
     expect(fakeBrowser.windows.update).toHaveBeenNthCalledWith(1, 5, { state: 'normal' });
     expect(fakeBrowser.windows.update).toHaveBeenNthCalledWith(2, 5, { focused: true });
+  });
+
+  it('leaves Firefox to restore a minimized window as it was, maximized or not, by focusing it', async () => {
+    vi.stubEnv('FIREFOX', 'true');
+    windows([{ id: 5, focused: false, state: 'minimized' }], [{ id: 7, windowId: 5 }]);
+    serveDeviceNotices();
+    socket.sendNotice.mockResolvedValue(true);
+    await noticeOnDevice(done, 7);
+
+    socket.opened!(done.id);
+    await vi.waitFor(() => expect(toast.goToTab).toHaveBeenCalledWith(7));
+    expect(vi.mocked(fakeBrowser.windows.update).mock.calls).toEqual([[5, { focused: true }]]);
+  });
+
+  it('keeps the tab of a notice that repeats, however many others came between', async () => {
+    windows([{ id: 4, focused: false, state: 'normal' }], [{ id: 7, windowId: 4 }]);
+    serveDeviceNotices();
+    socket.sendNotice.mockResolvedValue(true);
+    await noticeOnDevice({ ...done, id: 'timer:t1' }, 99);
+    for (let index = 0; index < 29; index++) await noticeOnDevice({ ...done, id: `monitor:m${index}` }, 100 + index);
+    await noticeOnDevice({ ...done, id: 'timer:t1' }, 7);
+    await noticeOnDevice({ ...done, id: 'monitor:last' }, 200);
+
+    socket.opened!('timer:t1');
+    await vi.waitFor(() => expect(toast.goToTab).toHaveBeenCalledWith(7));
   });
 
   it('brings a window forward for a notice that had no tab', async () => {

@@ -31,14 +31,18 @@ async function noticeTabs(): Promise<Record<string, number>> {
 }
 
 async function rememberTab(noticeId: string, tabId: number): Promise<void> {
-  const kept = Object.entries({ ...(await noticeTabs()), [noticeId]: tabId }).slice(-NOTICE_TABS_MAX);
+  const others = Object.entries(await noticeTabs()).filter(([id]) => id !== noticeId);
+  const kept = [...others, [noticeId, tabId] as const].slice(-NOTICE_TABS_MAX);
   await browser.storage.session.set({ [NOTICE_TABS_KEY]: Object.fromEntries(kept) });
 }
 
-/** Focus alone leaves a minimized window in the Dock or the taskbar, so it is restored first. */
+/**
+ * In Chromium, focus alone leaves a minimized window in the Dock or the taskbar, so it is restored
+ * first. Firefox's focus restores it as it was, while its "normal" would also undo a maximize.
+ */
 async function restore(windowId: number): Promise<void> {
   const window = await browser.windows.get(windowId).catch(() => null);
-  if (window?.state === 'minimized') await browser.windows.update(windowId, { state: 'normal' }).catch(() => undefined);
+  if (!import.meta.env.FIREFOX && window?.state === 'minimized') await browser.windows.update(windowId, { state: 'normal' }).catch(() => undefined);
   await browser.windows.update(windowId, { focused: true }).catch(() => undefined);
 }
 
