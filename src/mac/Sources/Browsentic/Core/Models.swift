@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 
 struct Lockfile: Decodable, Equatable {
     let pid: Int
@@ -123,6 +124,89 @@ struct BlockedBrowser: Decodable, Identifiable, Equatable {
     var name: String { browser ?? "A browser" }
     var shortId: String { String(installId.prefix(8)) }
     var why: String { reason == "denied" ? "Denied" : "Unpaired" }
+}
+
+/// A monitor, task or timer that finished while its browser was out of sight, handed over by the Bridge.
+/// `kind` and `tone` stay strings so a value this app does not know yet never drops the notice.
+struct QueuedNotice: Decodable, Identifiable, Equatable {
+    let id: String
+    let kind: String?
+    let title: String
+    let body: String
+    let tone: String?
+    let browser: String?
+}
+
+/// Decodes every element it can and skips the rest, so one malformed entry never costs the others.
+struct LossyList<Element: Decodable>: Decodable {
+    let items: [Element]
+
+    private struct Skipped: Decodable {
+        init(from _: Decoder) {}
+    }
+
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var items: [Element] = []
+        while !container.isAtEnd {
+            if let item = try? container.decode(Element.self) { items.append(item) } else { _ = try container.decode(Skipped.self) }
+        }
+        self.items = items
+    }
+}
+
+enum NoticeWatch {
+    /// The first Bridge protocol with `notices`, `takeNotices` and `openNotice`; an older Bridge never answers them.
+    static let protocolVersion = 24
+
+    static func supported(by status: BridgeStatus?) -> Bool { (status?.protocolVersion ?? 0) >= protocolVersion }
+
+    /// Allowed, and somewhere to appear: with alerts off and Notification Center off a notice shows nowhere.
+    static func allows(_ status: UNAuthorizationStatus, visible: Bool) -> Bool { (status == .authorized || status == .provisional) && visible }
+
+    /// Nil `reported` is a socket that has not been told yet.
+    static func needsReport(allowed: Bool, reported: Bool?) -> Bool { reported != allowed }
+
+    /// A repeat of the same event replaces the notification instead of stacking another.
+    static func identifier(for notice: String) -> String { "notice:\(notice)" }
+}
+
+/// The apps behind each brand a browser reports, every channel of one browser sharing its brand, so a notice
+/// click can let the browser it came from take the front.
+enum BrowserApps {
+    static let bundleIds: [String: [String]] = [
+        "Google Chrome": ["com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary"],
+        "Chromium": ["org.chromium.Chromium"],
+        "Microsoft Edge": ["com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev", "com.microsoft.edgemac.Canary"],
+        "Brave": ["com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly"],
+        "Opera": ["com.operasoftware.Opera"],
+        "Opera GX": ["com.operasoftware.OperaGX"],
+        "Vivaldi": ["com.vivaldi.Vivaldi"],
+        "Arc": ["company.thebrowser.Browser"],
+        "Firefox": ["org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"],
+        "Google Chrome for Testing": ["com.google.chrome.for.testing"],
+        "Zen": ["app.zen-browser.zen"],
+        "LibreWolf": ["io.gitlab.librewolf-community"],
+        "Waterfox": ["net.waterfox.waterfox"],
+        "Floorp": ["one.ablaze.floorp"],
+    ]
+
+    static func candidates(for brand: String?) -> [String] {
+        guard let brand else { return [] }
+        return bundleIds.first { $0.key.caseInsensitiveCompare(brand) == .orderedSame }?.value ?? []
+    }
+
+    /// The running apps of the brand the notice came from; an unknown brand, or none of its apps running, names none.
+    static func named(_ brand: String?, among running: Set<String>) -> [String] {
+        candidates(for: brand).filter(running.contains)
+    }
+
+    /// Those, or every running browser when they are none, since Vivaldi and Arc report no brand of their own:
+    /// only the browser the notice came from asks to come forward.
+    static func yielded(for brand: String?, among running: Set<String>) -> [String] {
+        let named = named(brand, among: running)
+        return named.isEmpty ? bundleIds.values.flatMap { $0 }.filter(running.contains).sorted() : named
+    }
 }
 
 /// What the Bridge answers an op that only succeeds or fails.

@@ -119,6 +119,16 @@ that start the app wait for the first pending list, at most eight. When no app i
 Bridge starts it with `--pairing`, which re-subscribes a running copy without showing its window.
 The NSIS uninstall hook runs `browsentic unregister-host` before `stop`.
 
+## Notices
+
+On a Bridge at protocol 24 or later, each new control socket sends `notices {watch, allowed}`, and sends
+it again when `allowed` changes (on the 2 s poll and on focus): whether the AUMID's `ToastNotifier`
+reports `Enabled`, so a development build says false and the browser keeps its own card. On `notices-changed`
+the app calls `takeNotices` and posts each as a toast (`notices.rs`, tagged by id), even while focused.
+Its `browsentic://notice/open` link sends `openNotice` only with the nonce minted for it, used once, and never shows the window.
+The copy of the app the click starts calls `AllowSetForegroundWindow(ASFW_ANY)` before it hands the link
+over, since Windows lets only that copy bring a window forward, and the browser is the one that has to.
+
 ## Build and test
 
 ```powershell

@@ -39,6 +39,19 @@ notifications; the sheet, the dot and the bounce carry the flow without them. Wh
 watching, the Bridge starts it with `open -g … --args --pairing`, which never takes focus. In auto
 mode a browser that paired by itself gets one notice and one notification, with Unpair.
 
+## Browser notices
+
+When a monitor, a scheduled task or a timer finishes while its browser is out of sight, the Bridge
+hands the notice to the app, which posts it as a macOS notification (`BROWSER_NOTICE`, identifier
+`notice:<id>`, so a repeat replaces it). On every socket to a Bridge at protocol 24 or later the app
+sends `notices {watch, allowed}`, and again whenever notification permission changes (checked on the
+poll and on activation, never awaited by the poll, since the first check waits on macOS's prompt).
+`allowed` also needs alerts or Notification Center on, so the browser keeps its own card when nothing
+would appear. On `notices-changed` it calls `takeNotices`. A click yields activation to the browser it
+came from (`BrowserApps`, brand to bundle ids, or every running browser when the brand names none, as
+for Vivaldi and Arc) and sends `openNotice`, leaving this window alone; when the Bridge can no longer
+reach that browser, the click brings the browser itself up.
+
 ## The payload
 
 [build-app.sh](../../src/mac/Scripts/build-app.sh) stages `Contents/Resources/payload/` in the npm
