@@ -610,8 +610,8 @@ describe('OpenCode 2 readiness', () => {
     expect(signInLine('opencode', 'darwin')).toBe(`OPENCODE_DB='${db}' opencode auth login --standalone`);
     expect(signInLine("/Users/o'neil/bin/opencode 2", 'darwin')).toBe(`OPENCODE_DB='${db}' '/Users/o'\\''neil/bin/opencode 2' auth login --standalone`);
     expect(signInLine("C:\\Users\\o'neil\\opencode.cmd", 'win32')).toBe(
-      `$before = $env:OPENCODE_DB; $env:OPENCODE_DB = '${db.replaceAll("'", "''")}'; ` +
-        `try { & 'C:\\Users\\o''neil\\opencode.cmd' auth login --standalone } finally { $env:OPENCODE_DB = $before }`,
+      `$before=$env:OPENCODE_DB; $env:OPENCODE_DB='${db.replaceAll("'", "''")}'; ` +
+        `try { & 'C:\\Users\\o''neil\\opencode.cmd' auth login --standalone } finally { $env:OPENCODE_DB=$before }`,
     );
   });
 });

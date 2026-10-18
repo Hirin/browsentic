@@ -440,7 +440,7 @@ export function signInLine(bin: string, platform: NodeJS.Platform = process.plat
   const db = database2();
   if (platform === 'win32') {
     const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
-    return `$before = $env:OPENCODE_DB; $env:OPENCODE_DB = ${literal(db)}; try { & ${literal(bin)} auth login --standalone } finally { $env:OPENCODE_DB = $before }`;
+    return `$before=$env:OPENCODE_DB; $env:OPENCODE_DB=${literal(db)}; try { & ${literal(bin)} auth login --standalone } finally { $env:OPENCODE_DB=$before }`;
   }
   const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
   return `OPENCODE_DB=${quote(db)} ${/^[\w./-]+$/.test(bin) ? bin : quote(bin)} auth login --standalone`;
