@@ -34,9 +34,9 @@ once more.
 
 ## Submitting an update
 
-1. **Pick a version above every one spent.** The Chrome Web Store has seen 0.7.11 and 0.8.0, and
-   Edge Add-ons 0.8.0. A store refuses a number it has already accepted, even for a build it
-   rejected.
+1. **Pick a version above every one spent.** The Chrome Web Store has seen 0.7.11, 0.8.0, 0.8.1
+   and 0.8.9, and Edge Add-ons 0.8.0 and 0.8.1. A store refuses a number it has already accepted,
+   even for a build it rejected.
 2. **Check the permissions** against the table below. A new permission needs a line here before it
    goes up, and a permission nothing uses comes out (`activeTab` is the current candidate).
 3. **`yarn zip`**, and upload `dist/browsentic-<version>-chrome.zip` to both stores. The Edge zip is
@@ -78,7 +78,7 @@ WHAT IT DOES
 • A new tab page to start from: type a task, open a frequent site, or pick up a recent conversation. You can switch it off in settings
 
 SAFETY AND PRIVACY
-• Connects to nothing until you pair it with a one-time code
+• Connects only to Browsentic Bridge on your own computer, once the two have paired: by themselves, after you allow it, or with a one-time code, as you choose
 • Asks for your approval before consequential actions, such as submitting a form or uploading a file
 • Passwords, keys and tokens are swapped for a sealed placeholder, so the model never sees them
 • Sites you block are off-limits to every agent, enforced in the browser
@@ -89,7 +89,7 @@ Browsentic has two parts, plus the agent you already use: this extension, and Br
 • On macOS or Windows: install the Browsentic app from browsentic.com, which sets everything up
 • On Linux, or without the app: Node.js 20 or newer, then run: npx browsentic@latest setup
 • An agent CLI signed in on your computer, such as Claude Code, Codex, or one of the others listed at browsentic.com
-Then click Browsentic in the toolbar to open the side panel, and enter the pairing code once.
+Then click Browsentic in the toolbar to open the side panel. The extension pairs with the Bridge by itself.
 
 OPTIONAL: USE IT FROM AN MCP CLIENT
 An MCP client such as Claude Code, Cursor or Zed can also drive the same paired browser. The side panel does not need this.
@@ -159,7 +159,7 @@ and *Website content*; leave the rest unticked, and tick all three certification
 Browsentic needs Browsentic Bridge on the computer and an AI agent CLI; the extension alone shows "offline".
 1. On macOS or Windows, install the Browsentic app from https://browsentic.com/install/ . On Linux, install Node.js 20 or newer and run: npx browsentic@latest setup
 2. Install and sign in to an agent CLI, such as Claude Code or Codex.
-3. The app, or setup, shows a pairing code. Click Browsentic in the toolbar and enter it. (Skip any steps for loading an unpacked copy: the extension is already installed from the store.)
+3. Click Browsentic in the toolbar to open the side panel. It pairs with the Bridge by itself; if it asks for a code, enter the one the app or setup shows. (Skip any steps for loading an unpacked copy: the extension is already installed from the store.)
 4. Open the side panel on any web page and type a task, for example: Summarise what this page says.
 5. Open a new tab: it shows Browsentic Home. Type: go to example.com. The side panel opens with the conversation and the tab goes to the site. Settings > Extension > New tab switches Home off.
 Demo videos of the full flow: https://browsentic.com/demos/

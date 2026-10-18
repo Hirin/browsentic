@@ -88,9 +88,9 @@ the app closed or quit.
 
 **Overview** has one row per browser on your computer, showing where its extension came from and
 whether it is connected. A browser without the extension has a button (**Add to Chrome**, **Add to
-Edge** or **Get the Firefox add-on**) that opens the store page in that browser and shows a pairing
-code. Press the store's button, click Browsentic in the toolbar and enter the code; the row turns
-**Connected**.
+Edge** or **Get the Firefox add-on**) that opens the store page in that browser. Press the store's
+button, and the extension connects by itself; the row turns **Connected**. If it asks for a code,
+enter the one the app shows.
 
 **Load it unpacked instead**, under the rows, is for a browser that cannot reach a store or for an
 unreleased build. It writes the extension to `%USERPROFILE%\browsentic\extension\chrome-mv3`, and

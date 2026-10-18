@@ -9,8 +9,8 @@ what your Mac already has, installs what is missing with one click, and keeps it
 
 The other half is the extension in your browser. The app's Overview tab opens its store
 page in the browser you pick: the Chrome Web Store for Chrome, Edge, Brave, Arc,
-Vivaldi and Opera, or the signed add-on for Firefox. Click Browsentic
-in the toolbar and enter the pairing code the app shows, once.
+Vivaldi and Opera, or the signed add-on for Firefox. The extension then
+connects to the app by itself; if it asks for a code, enter the one the app shows.
 
 If macOS says it "could not verify Browsentic is free of malware", this build was
 not notarized by Apple. Press Done, open System Settings > Privacy & Security,

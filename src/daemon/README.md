@@ -16,10 +16,11 @@ One command sets everything up, the extension included:
 npx browsentic@latest setup
 ```
 
-It starts Browsentic Bridge, asks which browser you use, opens the extension's store page there,
-prints a pairing code and waits for the browser to connect. Press **Add to Chrome** (**Add** in
-Firefox; Edge first asks you to allow extensions from other stores), click Browsentic in the toolbar and enter the code, once. On macOS and Windows an app does
-the same from a window: see [browsentic.com/install](https://browsentic.com/install/).
+It starts Browsentic Bridge, asks which browser you use, opens the extension's store page there
+and waits for the browser to connect. Press **Add to Chrome** (**Add** in Firefox; Edge first asks
+you to allow extensions from other stores), and the extension connects by itself; if it asks for a
+code, enter the one setup prints. On macOS and Windows an app does the same from a window: see
+[browsentic.com/install](https://browsentic.com/install/).
 
 The extension is on the
 [Chrome Web Store](https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp)
