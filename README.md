@@ -9,11 +9,8 @@ https://github.com/user-attachments/assets/d5407fc3-be1f-4b1d-8f88-afb7468ec917
   <a href="https://www.npmjs.com/package/browsentic"><img src="https://img.shields.io/npm/v/browsentic?logo=npm" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/browsentic"><img src="https://img.shields.io/npm/dm/browsentic?logo=npm" alt="npm downloads"></a>
   <a href="https://github.com/imshaikot/browsentic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/imshaikot/browsentic/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white" alt="CI"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/node/v/browsentic?logo=nodedotjs&logoColor=white" alt="node"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/npm/l/browsentic" alt="license"></a>
 </p>
 <p>
-  <a href="docs/guide/install.md"><img src="https://img.shields.io/badge/manifest-V3-4285F4?logo=googlechrome&logoColor=white" alt="Manifest V3"></a>
   <a href="https://github.com/imshaikot/browsentic/releases/latest"><img src="https://img.shields.io/github/actions/workflow/status/imshaikot/browsentic/release.yml?label=macOS%20build&logo=apple" alt="macOS build"></a>
   <a href="https://github.com/imshaikot/browsentic/releases/latest"><img src="https://img.shields.io/github/actions/workflow/status/imshaikot/browsentic/release.yml?label=Windows%20build&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMy40IDkuOCAydjkuNUgwek0xMSAxLjggMjQgMHYxMS41SDExek0wIDEyLjVoOS44VjIyTDAgMjAuNnpNMTEgMTIuNWgxM1YyNGwtMTMtMS44eiIvPjwvc3ZnPg==" alt="Windows build"></a>
   <a href="https://github.com/imshaikot/browsentic/releases/latest"><img src="https://img.shields.io/github/actions/workflow/status/imshaikot/browsentic/release.yml?label=Firefox%20build&logo=firefoxbrowser&logoColor=white" alt="Firefox build"></a>
@@ -34,14 +31,14 @@ Also an optional [MCP server](docs/guide/mcp-clients.md), so any MCP client can 
 </p>
 <p>
   <strong>Runs on</strong><br>
-  <a href="https://claude.com/claude-code"><img src="https://browsentic.com/icons/claude.svg" width="40" height="40" alt="Claude Code" title="Claude Code"></a>&emsp;
-  <a href="https://developers.openai.com/codex/cli"><picture><source media="(prefers-color-scheme: dark)" srcset="https://browsentic.com/icons/openai-dark.svg"><img src="https://browsentic.com/icons/openai.svg" width="40" height="40" alt="Codex" title="Codex"></picture></a>&emsp;
-  <a href="https://antigravity.google/docs/cli/install"><img src="https://browsentic.com/icons/antigravity.svg" width="40" height="40" alt="Antigravity" title="Antigravity"></a>&emsp;
-  <a href="https://github.com/mistralai/mistral-vibe"><img src="https://browsentic.com/icons/mistral.svg" width="40" height="40" alt="Mistral Vibe (beta)" title="Mistral Vibe (beta)"></a>&emsp;
-  <a href="https://docs.x.ai/build/overview"><picture><source media="(prefers-color-scheme: dark)" srcset="https://browsentic.com/icons/xai-dark.svg"><img src="https://browsentic.com/icons/xai.svg" width="40" height="40" alt="Grok Build (beta)" title="Grok Build (beta)"></picture></a>&emsp;
-  <a href="https://cursor.com/docs/cli/overview"><picture><source media="(prefers-color-scheme: dark)" srcset="https://browsentic.com/icons/cursor-dark.svg"><img src="https://browsentic.com/icons/cursor.svg" width="40" height="40" alt="Cursor CLI (beta)" title="Cursor CLI (beta)"></picture></a>&emsp;
-  <a href="https://qwenlm.github.io/qwen-code-docs/en/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://browsentic.com/icons/qwen-dark.svg"><img src="https://browsentic.com/icons/qwen.svg" width="40" height="40" alt="Qwen Code (beta)" title="Qwen Code (beta)"></picture></a>&emsp;
-  <a href="https://opencode.ai/docs/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://browsentic.com/icons/opencode-dark.svg"><img src="https://browsentic.com/icons/opencode.svg" width="40" height="40" alt="OpenCode (beta)" title="OpenCode (beta)"></picture></a>
+  <a href="https://claude.com/claude-code"><img src="docs/assets/agents/claude.svg" width="40" height="40" alt="Claude Code" title="Claude Code"></a>&emsp;
+  <a href="https://developers.openai.com/codex/cli"><img src="docs/assets/agents/codex.svg" width="40" height="40" alt="Codex" title="Codex"></a>&emsp;
+  <a href="https://antigravity.google/docs/cli/install"><img src="docs/assets/agents/antigravity.svg" width="40" height="40" alt="Antigravity" title="Antigravity"></a>&emsp;
+  <a href="https://github.com/mistralai/mistral-vibe"><img src="docs/assets/agents/mistral.svg" width="40" height="40" alt="Mistral Vibe (beta)" title="Mistral Vibe (beta)"></a>&emsp;
+  <a href="https://docs.x.ai/build/overview"><img src="docs/assets/agents/grok.svg" width="40" height="40" alt="Grok Build (beta)" title="Grok Build (beta)"></a>&emsp;
+  <a href="https://cursor.com/docs/cli/overview"><img src="docs/assets/agents/cursor.svg" width="40" height="40" alt="Cursor CLI (beta)" title="Cursor CLI (beta)"></a>&emsp;
+  <a href="https://qwenlm.github.io/qwen-code-docs/en/"><img src="docs/assets/agents/qwen.svg" width="40" height="40" alt="Qwen Code (beta)" title="Qwen Code (beta)"></a>&emsp;
+  <a href="https://opencode.ai/docs/"><img src="docs/assets/agents/opencode.svg" width="40" height="40" alt="OpenCode (beta)" title="OpenCode (beta)"></a>
 </p>
 
 </div>
