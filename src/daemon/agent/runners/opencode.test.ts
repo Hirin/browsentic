@@ -529,7 +529,9 @@ describe('reading an OpenCode 2 stream', () => {
   // Recorded against the real Zen endpoint, which still serves its free models only to OpenCode's own tools.
   test("Zen's free tier refusing a contained run says to pick a paid model, or sign Browsentic in to another provider", () => {
     const [[, , message]] = read2('2.0.32-free-tier.jsonl', 'fail');
-    expect(message).toMatch(/narrowed to the browser\. Pick a paid model in the side panel, .* another provider with OPENCODE_DB=/);
+    expect(message).toContain(
+      `narrowed to the browser. Pick a paid model in the side panel, which Zen bills to your OpenCode account, or sign Browsentic's OpenCode in to another provider with ${signInLine('opencode')}.`,
+    );
   });
 
   test('a model, or an effort, OpenCode does not have says which to change', () => {
