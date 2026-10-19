@@ -192,8 +192,28 @@ describe('a turn', () => {
   });
 
   // Recorded against the real Zen endpoint with no sign-in: ACP passes on only "Authentication required".
-  test('a model with no sign-in says how to sign Browsentic in', () => {
-    expect(through('free-tier')).toEqual([['fail', 'AGENT_FAILED', expect.stringMatching(/narrowed to the browser.*OPENCODE_DB=.*auth login --standalone/)]]);
+  test('a refused model OpenCode chose itself is named, with the paid model to pick instead', () => {
+    expect(through('free-tier')).toEqual([
+      [
+        'fail',
+        'AGENT_FAILED',
+        expect.stringMatching(
+          /^OpenCode Zen refused opencode\/big-pickle, which OpenCode chose because no model is picked in Browsentic\. .*Pick a paid model in the side panel, .*OPENCODE_DB=.*auth login --standalone\. \(Authentication required/,
+        ),
+      ],
+    ]);
+  });
+
+  test('a refused model picked in Browsentic is named as picked, and one of another provider names the sign-in it lacks', () => {
+    const refusedFor = (model: string) => {
+      const turn = holding({ settings: { bin: 'opencode', model } });
+      turn.feed(answerTo('free-tier', 1), answerTo('free-tier', 3), answerTo('free-tier', 6));
+      return turn.failed();
+    };
+    expect(refusedFor('opencode/big-pickle')).toEqual([['fail', 'AGENT_FAILED', expect.stringMatching(/^OpenCode Zen refused opencode\/big-pickle\. Zen's free models/)]]);
+    expect(refusedFor('mock/m1')).toEqual([
+      ['fail', 'AGENT_FAILED', expect.stringMatching(/^Browsentic's OpenCode has no working sign-in for mock, so it could not run mock\/m1\. Sign it in with OPENCODE_DB=/)],
+    ]);
   });
 
   test("another session's updates are not this turn's", () => {
