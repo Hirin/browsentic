@@ -1,4 +1,4 @@
-export const AGENT_KINDS = ['claude', 'codex', 'antigravity', 'vibe', 'grok', 'cursor', 'qwen', 'opencode'] as const;
+export const AGENT_KINDS = ['claude', 'codex', 'antigravity', 'vibe', 'grok', 'cursor', 'qwen', 'opencode', 'deepseek'] as const;
 
 export type AgentKind = (typeof AGENT_KINDS)[number];
 
@@ -98,6 +98,17 @@ export const AGENTS: Record<AgentKind, AgentDescriptor> = {
     // Spelled provider/model, and reachable only through a provider OpenCode is signed in to: Zen's
     // free models refuse a run whose tools are narrowed to the browser.
     models: ['anthropic/claude-opus-5-5', 'anthropic/claude-sonnet-5', 'openai/gpt-5.6', 'google/gemini-3.1-pro-preview'],
+    beta: true,
+  },
+  deepseek: {
+    kind: 'deepseek',
+    label: 'DeepSeek Harness',
+    vendor: 'DeepSeek',
+    bin: 'dsh',
+    install: 'npm i -g @deepseek-ai/dsh',
+    docs: 'https://deepseek-harness.github.io/deepseek-harness/',
+    // The same ids on a DeepSeek account and on an API key. Only deepseek-flash reads a screenshot.
+    models: ['deepseek-flash', 'deepseek-v4-pro'],
     beta: true,
   },
 };
