@@ -1,10 +1,13 @@
-import { mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { AgentProblem } from '@/lib/agents/catalog';
 import { stateDir } from '../../lockfile';
+import type { AgentSettings } from '../config';
 import { acpConversation, type ConfigOption, type ModelEntry, type Update } from './acp';
 import { MCP_SERVER_NAME } from './claude';
+import { spawnCli, stopTree, type CliProcess } from './command';
+import { childEnv } from './drive';
 import { conversationDir, effortOf, parseJsonLine, sweepRunDirs } from './util';
 import type { JsonContext, McpServer, Plan, Runner, RunMode, StreamContext, StreamReader, StreamSink } from './types';
 
@@ -122,7 +125,7 @@ export const deepseekRunner: Runner = {
     return {
       ...turn,
       files: [
-        { path: PATCH, content: patch([...runRows(context, chosen), insertServer(context.mcp)]) },
+        { path: PATCH, content: patch([...runRows(context.research, chosen), insertServer(context.mcp)]) },
         { path: INSTRUCTIONS, content: context.systemPrompt },
       ],
       args: ['--profile', 'headless', '--patch', join(turn.cwd, PATCH), ...resume, '--json', '-'],
@@ -139,7 +142,7 @@ export const deepseekRunner: Runner = {
     const plan: Plan = {
       ...turn,
       files: [
-        { path: PATCH, content: patch([...runRows(context, opening), { id: 'acp', config: { provider: opening.provider, model: opening.model } }]) },
+        { path: PATCH, content: patch([...runRows(context.research, opening), { id: 'acp', config: { provider: opening.provider, model: opening.model } }]) },
         { path: INSTRUCTIONS, content: context.systemPrompt },
       ],
       args: ['--profile', 'acp', '--patch', join(turn.cwd, PATCH)],
@@ -242,15 +245,111 @@ export const deepseekRunner: Runner = {
     return said ? explain(said[2]) : null;
   },
 
-  async check(): Promise<AgentProblem | null> {
-    if (signedIn('account') || signedIn('key') || process.env.DEEPSEEK_API_KEY) return null;
-    return {
-      code: 'AGENT_NEEDS_PERMISSION',
-      message: 'DeepSeek Harness is not signed in to a DeepSeek account, and no DEEPSEEK_API_KEY is set.',
-      fix: SIGN_IN,
-    };
+  async check(settings: AgentSettings, version?: string): Promise<AgentProblem | null> {
+    if (tooOld(version)) {
+      return { code: 'AGENT_UNUSABLE', message: `Browsentic needs DeepSeek Harness ${FLOOR.join('.')} or later; this one is ${version?.trim()}.`, fix: INSTALL };
+    }
+    if (!signedIn('account') && !signedIn('key') && !process.env.DEEPSEEK_API_KEY) {
+      return {
+        code: 'AGENT_NEEDS_PERMISSION',
+        message: 'DeepSeek Harness is not signed in to a DeepSeek account, and no DEEPSEEK_API_KEY is set.',
+        fix: SIGN_IN,
+      };
+    }
+    return vetted(settings.bin, version);
   },
 };
+
+/** The first release measured: its ACP server, patch rows and headless events are what this runner is written against. */
+const FLOOR = [0, 2, 1];
+
+function tooOld(version: string | undefined): boolean {
+  const parts = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version?.trim() ?? '');
+  if (!parts) return false;
+  const [major, minor, patch] = parts.slice(1).map(Number);
+  return major !== FLOOR[0] ? major < FLOOR[0] : minor !== FLOOR[1] ? minor < FLOOR[1] : patch < FLOOR[2];
+}
+
+/** Tool plugins a run may keep on: the to-do list, the timeout every call runs under, and the web on research. */
+const VETTED = ['@deepseek-ai/dsh-tool-todo', '@deepseek-ai/dsh-tool-call-timeout-policy', '@deepseek-ai/dsh-tool-web'];
+
+/** Plugins that hand the model a tool of their own, by the package they come from. */
+const TOOLISH = /^@deepseek-ai\/dsh-(tool-|mcp-client|browser-use|computer-use|terminal|ptc|workflow)/;
+
+const DUMP_TIMEOUT_MS = 10_000;
+
+/** The tree each dsh a run would compose was last found in, by bin and version: a release can add a tool row that starts on. */
+const trees = new Map<string, Promise<AgentProblem | null>>();
+
+/**
+ * The plugin tree a research turn would run on, as this dsh composes it with the patch: any tool
+ * plugin left on that Browsentic has not vetted means the patch no longer covers this release.
+ * An answer that cannot be read is no objection; the plan is still vetted, and the run tripped.
+ */
+function vetted(bin: string, version?: string): Promise<AgentProblem | null> {
+  const key = `${bin}|${version ?? ''}`;
+  let asked = trees.get(key);
+  if (!asked) {
+    asked = composedTree(bin).then((tree) => {
+      const left = tree ? unvetted(tree) : [];
+      if (!left.length) return null;
+      return {
+        code: 'AGENT_UNUSABLE',
+        message: `This DeepSeek Harness has tool plugins Browsentic has not checked, so it would not keep a run to the browser: ${left.join(', ')}. Update Browsentic, or install the DeepSeek Harness it was checked against.`,
+      } satisfies AgentProblem;
+    });
+    trees.set(key, asked);
+  }
+  return asked;
+}
+
+interface TreeRow {
+  id: string;
+  name: string;
+  on: boolean;
+}
+
+function composedTree(bin: string): Promise<TreeRow[] | null> {
+  const cwd = join(root(), 'check');
+  mkdirSync(cwd, { recursive: true });
+  writeFileSync(join(cwd, PATCH), patch([...runRows(true, { provider: provider(), model: DEFAULT_MODEL }), { id: 'acp', config: { provider: provider(), model: DEFAULT_MODEL } }]));
+  let child: CliProcess;
+  try {
+    child = spawnCli(bin, ['--profile', 'acp', '--patch', join(cwd, PATCH), '--dump-config'], { cwd, env: { ...childEnv('deepseek'), ...environment(cwd, runHome()) } });
+  } catch {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let output = '';
+    const timer = setTimeout(() => {
+      stopTree(child, 'SIGKILL');
+      resolve(null);
+    }, DUMP_TIMEOUT_MS);
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString('utf8')));
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolve(null);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0 ? rowsOfTree(output) : null);
+    });
+  });
+}
+
+/** The tool rows a composed tree leaves on that Browsentic has not vetted. */
+export const unvetted = (tree: TreeRow[]): string[] => tree.filter((row) => row.on && TOOLISH.test(row.name) && !VETTED.includes(row.name)).map((row) => row.id);
+
+/** The rows of a `--dump-config` tree: each starts `- id:` at the margin, and is off only where it says `disabled: true`. */
+export function rowsOfTree(yaml: string): TreeRow[] {
+  return yaml
+    .split(/\n(?=- )/)
+    .flatMap((block) => {
+      const id = /^- id: (\S+)/.exec(block)?.[1];
+      const name = /^\s+name: '?([^'\s]+)'?/m.exec(block)?.[1];
+      return id && name ? [{ id, name, on: !/^\s+disabled: true$/m.test(block) }] : [];
+    });
+}
 
 /** What every streamed turn starts from: its conversation's folder, and the run's own dsh home. */
 function turnOf(context: StreamContext): Omit<Plan, 'args' | 'files'> {
@@ -292,9 +391,9 @@ const signIn = (): Row[] => [
   ...SIGN_IN_ROWS.map((id) => ({ id, disabled: false })),
 ];
 
-function runRows(context: StreamContext, turn: Route): Row[] {
+function runRows(research: boolean, turn: Route): Row[] {
   return [
-    ...[...SWITCHED_OFF, ...(context.research ? [] : [WEB])].map((id) => ({ id, disabled: true })),
+    ...[...SWITCHED_OFF, ...(research ? [] : [WEB])].map((id) => ({ id, disabled: true })),
     ...signIn(),
     defaultModel(turn),
     instructionsRow(PATCH),

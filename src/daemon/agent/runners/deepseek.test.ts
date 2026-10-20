@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { deepseekRunner } from './deepseek';
-import { jsonContext, readThrough, streamContext, transcript, type Call } from './fixtures/support';
+import { deepseekRunner, rowsOfTree, unvetted } from './deepseek';
+import { jsonContext, readThrough, streamContext, stubCli, transcript, type Call } from './fixtures/support';
 import type { Conversation, StreamContext, StreamSink } from './types';
 
 const SESSION = '942f4fe8-050b-49f9-8426-40bef1b73a35';
@@ -236,13 +236,37 @@ describe('plans', () => {
   });
 });
 
+describe('the plugin tree a release composes', () => {
+  const tree = readFileSync(new URL('./fixtures/deepseek/0.2.1-rc.2-tree.yml', import.meta.url), 'utf8');
+
+  test('is read row by row, and 0.2.1-rc.2’s leaves no tool on that Browsentic has not vetted', () => {
+    const rows = rowsOfTree(tree);
+    expect(rows.find((row) => row.id === 'tool-bash')).toEqual({ id: 'tool-bash', name: '@deepseek-ai/dsh-tool-bash', on: false });
+    expect(rows.find((row) => row.id === 'tool-web')).toEqual({ id: 'tool-web', name: '@deepseek-ai/dsh-tool-web', on: true });
+    expect(unvetted(rows)).toEqual([]);
+  });
+
+  test('a tool row a later release adds, left on, is found', () => {
+    const later = `${tree}- id: tool-terminal\n  name: '@deepseek-ai/dsh-tool-terminal'\n`;
+    expect(unvetted(rowsOfTree(later))).toEqual(['tool-terminal']);
+  });
+});
+
 describe('readiness', () => {
   const was = { home: process.env.DSH_HOME, key: process.env.DEEPSEEK_API_KEY };
+  const tree = readFileSync(new URL('./fixtures/deepseek/0.2.1-rc.2-tree.yml', import.meta.url), 'utf8');
   let home: string;
+  let SETTINGS: { bin: string };
+  /** A stand-in dsh that prints this tree for `--dump-config`. */
+  const printing = (name: string, printed: string) => ({
+    bin: stubCli(join(home, name), `process.stdout.write(${JSON.stringify(printed)});`),
+  });
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), 'dsh-home-'));
     process.env.DSH_HOME = home;
     delete process.env.DEEPSEEK_API_KEY;
+    SETTINGS = printing('dsh', tree);
+    vi.useRealTimers();
   });
   afterEach(() => {
     rmSync(home, { recursive: true, force: true });
@@ -264,5 +288,17 @@ describe('readiness', () => {
 
   test('no sign-in at all asks for one', async () => {
     expect(await deepseekRunner.check?.(SETTINGS)).toMatchObject({ code: 'AGENT_NEEDS_PERMISSION', fix: 'dsh web' });
+  });
+
+  test('a release whose tree leaves a tool on that the patch does not cover is not used', async () => {
+    process.env.DEEPSEEK_API_KEY = 'sk-x';
+    const later = printing('dsh-later', `${tree}- id: tool-terminal\n  name: '@deepseek-ai/dsh-tool-terminal'\n`);
+    expect(await deepseekRunner.check?.(later, '0.3.0')).toMatchObject({ code: 'AGENT_UNUSABLE', message: expect.stringContaining('tool-terminal') });
+    expect(await deepseekRunner.check?.(SETTINGS, '0.2.1-rc.2')).toBeNull();
+  });
+
+  test('a release older than the one this runner was written against is not used', async () => {
+    process.env.DEEPSEEK_API_KEY = 'sk-x';
+    expect(await deepseekRunner.check?.(SETTINGS, '0.1.9')).toMatchObject({ code: 'AGENT_UNUSABLE', fix: 'npm i -g @deepseek-ai/dsh' });
   });
 });
