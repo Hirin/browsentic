@@ -1,4 +1,4 @@
-import type { AgentKind } from '@/lib/agents/catalog';
+import { isAgentKind, type AgentKind } from '@/lib/agents/catalog';
 import { cn } from '@/lib/utils';
 
 // Each vendor's own mark, as published, in one colour. They are trademarks used to say
@@ -38,9 +38,12 @@ const MARKS: Record<AgentKind, { viewBox: string; path: string }> = {
   },
 };
 
+/** A plain prompt, for an agent a newer Bridge can run and this build has no mark for. */
+const UNKNOWN_MARK = { viewBox: '0 0 24 24', path: 'M5 6.5 6.5 5l7 7-7 7L5 17.5 10.5 12 5 6.5ZM12 17h7v2h-7v-2Z' };
+
 /** The vendor's mark in the current text colour, so it follows the row's state and the theme. */
 export function AgentMark({ kind, className }: { kind: AgentKind; className?: string }) {
-  const mark = MARKS[kind];
+  const mark = isAgentKind(kind) ? MARKS[kind] : UNKNOWN_MARK;
   return (
     <svg viewBox={mark.viewBox} fill="currentColor" className={cn('size-3.5 shrink-0', className)} aria-hidden>
       <path d={mark.path} />

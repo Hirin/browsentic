@@ -108,6 +108,16 @@ export function isAgentKind(value: unknown): value is AgentKind {
   return typeof value === 'string' && (AGENT_KINDS as readonly string[]).includes(value);
 }
 
+/** An agent's name, or its kind as sent when it came after this build: a newer Bridge can run one. */
+export function agentLabel(kind: AgentKind): string {
+  return isAgentKind(kind) ? AGENTS[kind].label : String(kind);
+}
+
+/** What a panel too old to know the chosen agent is told instead of being sent it. */
+export function needsNewerExtension(kind: AgentKind): string {
+  return `${agentLabel(kind)} needs a newer Browsentic extension. Update it, or pick another agent with \`browsentic agent claude\`.`;
+}
+
 export interface AgentProblem {
   code: 'AGENT_MISSING' | 'AGENT_UNUSABLE' | 'AGENT_NEEDS_PERMISSION';
   message: string;
