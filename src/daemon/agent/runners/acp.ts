@@ -143,7 +143,7 @@ export function acpConversation(context: StreamContext, agent: AcpAgent): Conver
     const entry = offered.find((candidate) => candidate.id === pinned);
     if (!pinned || choice?.currentValue === (entry?.value ?? pinned)) return chooseEffort(options, io, sink);
     if (!entry) {
-      const some = offered.map((candidate) => candidate.id).slice(0, 6);
+      const some = [...new Set(offered.map((candidate) => candidate.id))].slice(0, 6);
       return sink.fail(
         'AGENT_FAILED',
         `${agent.label} offers no model "${pinned}" here.${some.length ? ` It offers ${some.join(', ')}, among others.` : ''} ` +
