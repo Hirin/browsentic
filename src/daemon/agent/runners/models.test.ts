@@ -175,6 +175,15 @@ describe('reading and keeping a list', () => {
     expect(spawned()).toEqual(['agy models']);
   });
 
+  test('a list read on a version with a lister is dropped once the CLI changes to one without, and the curated list comes back', async () => {
+    const versioned: Runner = { ...agy, models: (version) => (version === '2' ? (agy.models as ModelLister) : undefined) };
+    await refreshModels(versioned, settings(listed), '2');
+    expect([await refreshModels(versioned, settings(listed), '1'), modelsFor('antigravity')]).toEqual([
+      true,
+      { ids: AGENTS.antigravity.models, from: 'catalog', error: undefined },
+    ]);
+  });
+
   test('a failed read keeps the last good list, and says why', async () => {
     await refreshModels(agy, settings(listed), '1.2.11');
     expect(await refreshModels(agy, settings(signedOut), '1.2.11')).toBe(true);

@@ -55,7 +55,7 @@ export function refreshModels(
   { force = false } = {},
 ): Promise<boolean> {
   const lister = listerFor(runner, version);
-  if (!lister) return Promise.resolve(false);
+  if (!lister) return Promise.resolve(forget(runner.kind));
   const running = inFlight.get(runner.kind);
   if (running) return running;
   const source: Source = { bin: settings.bin, version, stamp: 'file' in lister ? undefined : lister.stamp?.() };
@@ -75,6 +75,15 @@ export function refreshModels(
 
 export function listerFor(runner: Runner, version: string | undefined): ModelLister | undefined {
   return typeof runner.models === 'function' ? runner.models(version) : runner.models;
+}
+
+/** A list read on a version that had a lister is no list for one that has none, such as OpenCode 2's for OpenCode 1. */
+function forget(kind: AgentKind): boolean {
+  const store = readStore();
+  if (!store[kind]) return false;
+  delete store[kind];
+  writeStore(store);
+  return true;
 }
 
 function due(entry: Entry | undefined, { bin, version, stamp }: Source, lister: ModelLister): boolean {
