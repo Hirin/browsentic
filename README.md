@@ -7,7 +7,6 @@ https://github.com/user-attachments/assets/d5407fc3-be1f-4b1d-8f88-afb7468ec917
 <p>
   <a href="https://chromewebstore.google.com/detail/browsentic/npmocgldfflonjjmdadmdefpnfagnjmp"><img src="https://img.shields.io/chrome-web-store/v/npmocgldfflonjjmdadmdefpnfagnjmp?logo=googlechrome&logoColor=white&label=Chrome%20Web%20Store" alt="Chrome Web Store version"></a>
   <a href="https://www.npmjs.com/package/browsentic"><img src="https://img.shields.io/npm/v/browsentic?logo=npm" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/browsentic"><img src="https://img.shields.io/npm/dm/browsentic?logo=npm" alt="npm downloads"></a>
   <a href="https://github.com/imshaikot/browsentic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/imshaikot/browsentic/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white" alt="CI"></a>
 </p>
 <p>
