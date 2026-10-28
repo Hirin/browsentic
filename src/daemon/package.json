@@ -48,12 +48,15 @@
     "prepack": "node scripts/stage-extension.mjs"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",
     "ws": "^8.21.1",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
+  },
+  "resolutions": {
+    "esbuild": "^0.28.2"
   }
 }

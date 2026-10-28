@@ -18,9 +18,9 @@ function yarn() {
 
 // src/daemon is a separate Yarn project (its own lockfile), so the root install does not cover it.
 const STEPS = [
-  ['extension dependencies', ['install']],
+  ['extension dependencies', ['install', '--immutable']],
   ['extension build', ['build']],
-  ['daemon dependencies', ['--cwd', 'src/daemon', 'install']],
+  ['daemon dependencies', ['--cwd', 'src/daemon', 'install', '--immutable']],
   ['daemon build', ['--cwd', 'src/daemon', 'build']],
 ];
 
