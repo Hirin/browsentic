@@ -27,10 +27,10 @@ const host = () => {
 };
 
 /** A conversation fed lines by hand: what it wrote to Codex, and what it told the run. */
-function hold({ bin = 'codex', sessionId = null as string | null, transport = undefined as string | undefined } = {}) {
+function hold({ bin = 'codex', sessionId = null as string | null, transport = undefined as string | undefined, project = undefined as { id: string; cwd: string } | undefined } = {}) {
   const tools = host();
   const conversation = codexRunner.converse?.(
-    streamContext({ bin, transport }, { sessionId, systemPrompt: 'You are Browsentic.', tools: async () => tools }),
+    streamContext({ bin, transport }, { sessionId, project, systemPrompt: 'You are Browsentic.', tools: async () => tools }),
   ) as Conversation;
   const written: Record<string, unknown>[] = [];
   const calls: unknown[][] = [];
@@ -63,6 +63,13 @@ const response = (id: number) => recorded.find((line) => JSON.parse(line).id ===
 const sent = (written: Record<string, unknown>[], method: string) => written.find((message) => message.method === method);
 
 describe('the handshake', () => {
+  test('a selected project supplies native identity and cwd, while project MCPs remain disabled', async () => {
+    const project = { id: '01a18055-91a3-7810-8bd7-3a837d9b3f6c', cwd: '/approved/project' };
+    const { written, feed } = hold({ bin: 'codex-project', project });
+    await feed(response(1), response(2));
+    expect(sent(written, 'config/read')?.params).toEqual({ cwd: project.cwd });
+    expect(sent(written, 'thread/start')?.params).toMatchObject({ projectId: project.id, cwd: project.cwd, sandbox: 'read-only', approvalPolicy: 'never', config: { 'mcp_servers.decoy.enabled': false } });
+  });
   test("starts a thread with the browser tools as its own, each group and the withheld ones out of sight, and every server of the user's switched off", async () => {
     const { written, feed } = hold({ bin: 'codex-handshake' });
     expect(written[0]).toMatchObject({ id: 1, method: 'initialize', params: { capabilities: { experimentalApi: true } } });

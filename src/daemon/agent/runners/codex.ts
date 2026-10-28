@@ -197,6 +197,7 @@ export const codexRunner: Runner = {
     const { settings, research } = context;
     if (!heldOverStdin(settings)) return null;
     return appServerTurn(context, {
+      ...(context.project ? { project: context.project } : {}),
       plan: {
         cwd: this.workspace('run'),
         args: [
@@ -223,6 +224,7 @@ export const codexRunner: Runner = {
   },
 
   stream(context: StreamContext): Plan {
+    if (context.project && !context.sessionId) throw new Error('A new project chat requires the Codex app-server transport. Update Codex and retry.');
     const { mcp, research } = context;
     const settings = withUserDefaults(context.settings);
     const server = `mcp_servers.${MCP_SERVER_NAME}`;

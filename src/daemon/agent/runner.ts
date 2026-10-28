@@ -22,6 +22,7 @@ export interface RunRequest {
   research?: boolean;
   /** A session this same agent established earlier in the conversation, or null to start fresh. */
   sessionId: string | null;
+  project?: { id: string; cwd: string };
   /** The tools the run's MCP server will offer, by the names it lists them under. */
   mcpTools: string[];
   /** Settles once the run's MCP server has listed those tools to the CLI. */
@@ -46,6 +47,7 @@ export async function runInstruction(request: RunRequest): Promise<RunOutcome> {
         research: request.research === true,
         settings,
         sessionId: request.sessionId,
+        ...(request.project ? { project: request.project } : {}),
         workspace: runner.workspace('run'),
         mcp: mcpServerFor(request.runId, runner.limits),
         mcpTools: request.mcpTools,

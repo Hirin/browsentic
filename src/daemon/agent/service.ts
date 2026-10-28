@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { WORKSPACE_ACTIONS, WORKSPACE_LIST, WORKSPACE_READ, WORKSPACE_PATCH, isWorkspaceAction } from '@/lib/workspace-tools';
+import { projectWorkspace, WorkspaceError, type PreparedEdit, type WorkspaceFiles } from '../workspace-files';
+import { sealSecretsIn } from '../guardrails/secrets';
 import { basename } from 'node:path';
 import {
   failure,
@@ -90,6 +93,8 @@ interface ActiveRun {
   /** The tab-bound conversation this run belongs to; one run at a time per session. */
   sessionId?: string;
   config: AgentConfig;
+  workspace?: WorkspaceFiles;
+  edits?: Map<string, PreparedEdit>;
   policy: Policy;
   scope: Scope;
   abort: AbortController;
@@ -229,7 +234,7 @@ export class AgentSession {
       withheld: codeWithheld,
       // A mapping run never resumes a conversation, so its tool can come and go. A pick
       // comes and goes between the messages of one, so the tool that shows it stays.
-      reserved: [...(run.map ? [SAVE_SITE_MAP_ACTION] : []), FOCUS_SHOT_ACTION],
+      reserved: [...(run.map ? [SAVE_SITE_MAP_ACTION] : []), FOCUS_SHOT_ACTION, ...(run.workspace ? WORKSPACE_ACTIONS : [])],
       onDemand: offered(codeWithheld),
       delivery,
     };
@@ -258,6 +263,7 @@ export class AgentSession {
     this.withdraw(run);
 
     const toolId = randomUUID();
+    if (isWorkspaceAction(action)) return this.invokeWorkspace(run, toolId, action, input, key, signal, startedAt);
     emit({ kind: 'tool', toolId, action, input });
 
     if (action === SAVE_SITE_MAP_ACTION) {
@@ -346,26 +352,69 @@ export class AgentSession {
       );
     }
     if (answer.withdrawn) {
+      run.edits?.delete(toolId);
       log(`agent run ${run.id} stopped waiting on ${action}: ${why}`);
       emit({ kind: 'toolResult', toolId, ok: false, summary: 'the agent stopped waiting' });
       return failure('CANCELLED', 'The call was abandoned before the user answered.');
     }
     if (answer.unanswered) {
+      run.edits?.delete(toolId);
       log(`agent run ${run.id} got no answer on ${action}: ${why}`);
       emit({ kind: 'toolResult', toolId, ok: false, summary: 'nobody answered in time' });
       return unanswered();
     }
     if (!answer.allow) {
+      run.edits?.delete(toolId);
       log(`agent run ${run.id} declined ${action}: ${why}`);
       emit({ kind: 'toolResult', toolId, ok: false, summary: 'declined by the user' });
       return declined();
     }
-    if (answer.remember && run.site) rememberGrant(action, run.site, new Date().toISOString());
+    if (answer.remember && run.site && !isWorkspaceAction(action)) rememberGrant(action, run.site, new Date().toISOString());
     if (HELD_FOR_RUN.has(action)) run.approved.add(action);
     return this.perform(run, toolId, action, waiting.input, startedAt);
   }
 
+  private async invokeWorkspace(run: ActiveRun, toolId: string, action: string, input: unknown, key: string, signal: AbortSignal | undefined, startedAt: number): Promise<ActionResult> {
+    const emit = (event: RunEvent) => this.deps.emit(run.id, event);
+    let shown = false;
+    try {
+      if (!run.workspace) throw new WorkspaceError('Choose a local Codex project before using project files.');
+      if (action === WORKSPACE_LIST || action === WORKSPACE_READ) {
+        emit({ kind: 'tool', toolId, action, input }); shown = true;
+        const result = success(sealSecretsIn(action === WORKSPACE_LIST ? run.workspace.list(input) : run.workspace.read(input)));
+        emit({ kind: 'toolResult', toolId, ok: true, summary: action === WORKSPACE_LIST ? 'Project folder listed' : 'Project file read' });
+        return result;
+      }
+      if (action !== WORKSPACE_PATCH || run.scheduled) throw new WorkspaceError('This project action is unavailable.');
+      if ((run.edits?.size ?? 0) >= 8) throw new WorkspaceError('Too many pending file edits. Finish the current proposals first.');
+      const edit = run.workspace.prepare(input);
+      run.edits ??= new Map();
+      run.edits.set(toolId, edit);
+      emit({ kind: 'tool', toolId, action, input: edit.preview }); shown = true;
+      emit({ kind: 'approval', toolId, action, input: edit.preview });
+      // File edits never inherit a site grant or a prior approval, including "always" grants.
+      return await this.answered(run, { key, toolId, action, input: edit.preview, why: 'Writes the reviewed change to the selected project file.', decision: this.awaitDecision(run, toolId) }, signal, startedAt);
+    } catch (err) {
+      if (!shown) emit({ kind: 'tool', toolId, action, input });
+      const message = err instanceof WorkspaceError ? err.message : 'Could not access that project file.';
+      const result = failure(err instanceof WorkspaceError ? err.code : 'WORKSPACE_FAILED', message);
+      emit({ kind: 'toolResult', toolId, ok: false, summary: message });
+      return result;
+    }
+  }
+
   private async perform(run: ActiveRun, toolId: string, action: string, input: unknown, startedAt: number): Promise<ActionResult> {
+    if (action === WORKSPACE_PATCH) {
+      const edit = run.edits?.get(toolId);
+      run.edits?.delete(toolId);
+      let result: ActionResult;
+      try {
+        if (!edit || !run.workspace) throw new WorkspaceError('No approved project edit is pending.');
+        result = success(run.workspace.apply(edit));
+      } catch (err) { result = failure(err instanceof WorkspaceError ? err.code : 'WORKSPACE_FAILED', err instanceof WorkspaceError ? err.message : 'Could not write the project file.'); }
+      this.deps.emit(run.id, { kind: 'toolResult', toolId, ok: result.ok, summary: result.ok ? 'Project file updated' : result.error.message });
+      return result;
+    }
     const scope = run.ownedTabIds.length ? { ...run.scope, ownedTabIds: run.ownedTabIds } : run.scope;
     const result = await this.deps.invoke(action, this.withinCall(run, action, input, startedAt), { runId: run.id, hosts: scope.hosts });
     if (action === openTab.name && result.ok) {
@@ -400,6 +449,7 @@ export class AgentSession {
     const parked = run.parked;
     if (!parked) return;
     run.parked = undefined;
+    run.edits?.delete(parked.toolId);
     run.pending.get(parked.toolId)?.({ allow: false, withdrawn: true });
     log(`agent run ${run.id} withdrew its request for ${parked.action}`);
     this.deps.emit(run.id, { kind: 'toolResult', toolId: parked.toolId, ok: false, summary: 'the agent stopped waiting' });
@@ -537,6 +587,11 @@ export class AgentSession {
     let instructionText = routed.text;
     let handover: Handover = { handed: [] };
     try {
+      if (context?.projectId) {
+        if (config.agent !== 'codex' || mapping || run.phone || run.scheduled) throw new WorkspaceError('Project files are available only in an interactive Codex project chat.');
+        run.workspace = await projectWorkspace(context.projectId, resuming);
+        run.edits = new Map();
+      }
       if (mapping) {
         const prepared = await this.prepareMapping(run, routed.base, context, emit);
         if (!prepared) return;
@@ -553,6 +608,7 @@ export class AgentSession {
         });
         const profile = readProfile();
         built = buildSystemPrompt(routed.base, routed.overlays, {
+          ...(run.workspace ? { project: JSON.stringify({ name: run.workspace.project.name, roots: run.workspace.roots.map((path, index) => ({ index, folder: basename(path) })) }) } : {}),
           instructions: profile.instructions,
           profile: profileBlock(profile),
           attached,
@@ -595,6 +651,7 @@ export class AgentSession {
       emit({ kind: 'attachments', files: handover.handed });
     }
 
+
     const allowance = run.map ? run.map.settings.timeoutMs : run.scheduled ? TASK_RUN_MAX_MS : undefined;
     const budget = allowance ? setTimeout(() => run.abort.abort(), allowance) : undefined;
     const onDemand = this.onDemand(run);
@@ -614,7 +671,8 @@ export class AgentSession {
         research: run.map ? run.map.settings.research : false,
         config: turnConfig,
         sessionId: resuming,
-        mcpTools: agentRunToolNames(this.deps.actionNames().filter((name) => !onDemand.includes(name))),
+        mcpTools: agentRunToolNames([...this.deps.actionNames().filter((name) => !onDemand.includes(name)), ...(run.workspace ? WORKSPACE_ACTIONS : [])]),
+        ...(run.workspace ? { project: { id: run.workspace.project.id, cwd: run.workspace.roots[0] } } : {}),
         toolsListed: () => run.listed,
         version: runner.version,
         signal: run.abort.signal,

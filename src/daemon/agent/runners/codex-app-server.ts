@@ -34,6 +34,7 @@ interface Usage {
 }
 
 export interface AppServerTurn {
+  project?: { id: string; cwd: string };
   plan: Plan;
   settings: AgentSettings;
   effort?: string;
@@ -64,7 +65,7 @@ export function appServerTurn(context: StreamContext, turn: AppServerTurn): Conv
   };
 
   const threadParams = (disabled: string[]) => ({
-    cwd: turn.plan.cwd,
+    cwd: turn.project?.cwd ?? turn.plan.cwd,
     sandbox: 'read-only',
     approvalPolicy: 'never',
     developerInstructions: turn.developerInstructions,
@@ -91,6 +92,7 @@ export function appServerTurn(context: StreamContext, turn: AppServerTurn): Conv
           method: 'thread/start',
           params: {
             ...threadParams(disabled),
+            ...(turn.project ? { projectId: turn.project.id } : {}),
             dynamicTools: [
               ...tools.map((tool) => dynamicTool(tool, false)),
               ...groups.map(deferred),
@@ -122,7 +124,7 @@ export function appServerTurn(context: StreamContext, turn: AppServerTurn): Conv
       case ASK.initialize:
         if (failed) return refuse(sink, `its app-server would not start a session: ${failed.message}`);
         io.write({ jsonrpc: '2.0', method: 'initialized' });
-        return io.write({ jsonrpc: '2.0', id: ASK.config, method: 'config/read', params: {} });
+        return io.write({ jsonrpc: '2.0', id: ASK.config, method: 'config/read', params: turn.project ? { cwd: turn.project.cwd } : {} });
 
       case ASK.config: {
         if (failed) return refuse(sink, `its app-server would not show its config: ${failed.message}`);

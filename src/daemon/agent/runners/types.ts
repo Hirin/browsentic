@@ -43,6 +43,7 @@ export interface CallLimits {
 }
 
 export interface StreamContext {
+  project?: { id: string; cwd: string };
   runId: string;
   /** The panel conversation this run belongs to, which every turn of it shares — unlike `runId`. */
   conversation: string | null;
