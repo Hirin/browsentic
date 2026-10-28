@@ -252,7 +252,7 @@ export function sendNotice(notice: DeviceNotice): Promise<boolean> {
 const pendingSessionNames = new Map<string, (result: ActionResult<{ title: string }>) => void>();
 const pendingCodexHistory = new Map<string, (result: ActionResult<import('@/lib/codex-history').CodexHistory>) => void>();
 
-export function readCodexHistory(query: { threadId?: string; cursor?: string }): Promise<ActionResult<import('@/lib/codex-history').CodexHistory>> {
+export function readCodexHistory(query: import('@/lib/codex-history').CodexHistoryQuery): Promise<ActionResult<import('@/lib/codex-history').CodexHistory>> {
   const id = crypto.randomUUID();
   if (!post({ t: 'codexHistory', id, ...query })) return Promise.resolve(failure('EXTENSION_OFFLINE', 'Pair the browser with Browsentic first.'));
   return new Promise((resolve) => {

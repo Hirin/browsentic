@@ -60,7 +60,7 @@ export default defineBackground(() => {
         sendResponse(failure('BLOCKED', 'Local Codex history is available only in the extension side panel.'));
         return;
       }
-      readCodexHistory({ threadId: message.threadId, cursor: message.cursor })
+      readCodexHistory({ threadId: message.threadId, cursor: message.cursor, operation: message.operation, projectId: message.projectId })
         .then(sendResponse)
         .catch(() => sendResponse(failure('CODEX_HISTORY_FAILED', 'Could not read local Codex history.')));
       return true;

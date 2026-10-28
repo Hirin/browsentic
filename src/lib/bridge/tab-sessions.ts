@@ -27,6 +27,7 @@ export interface TaskTag {
 }
 
 export interface TabSession {
+  projectId?: string;
   sessionId: string;
   mainTabId: number;
   /** The main tab plus every tab this session's runs opened. */
@@ -142,6 +143,7 @@ export async function ensureSessionForTab(anchor: TabAnchor): Promise<Ensured> {
 export function bindStoredSession(
   fields: {
     sessionId: string;
+    projectId?: string;
     turns: number;
     agent?: AgentKind;
     agentSessionId?: string;
@@ -158,6 +160,7 @@ export function bindStoredSession(
     const now = Date.now();
     const session: TabSession = {
       sessionId: fields.sessionId,
+      ...(fields.projectId ? { projectId: fields.projectId } : {}),
       mainTabId: anchor.tabId,
       tabIds: [anchor.tabId],
       currentTabId: anchor.tabId,

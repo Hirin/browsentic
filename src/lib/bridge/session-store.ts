@@ -17,6 +17,7 @@ const MAX_ITEMS = 500;
 export const TITLE_TURNS = [1, 5, 15] as const;
 
 export interface StoredSessionMeta {
+  projectId?: string;
   id: string;
   title?: string;
   host?: string;

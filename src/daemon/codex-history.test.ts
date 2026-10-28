@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { configPath } from './agent/config';
 import { stubCli } from './agent/runners/fixtures/support';
 import { stateDir } from './lockfile';
-import { codexHistory, projectHistory } from './codex-history';
+import { codexHistory, projectCatalog, projectHistory } from './codex-history';
 
 const id = '01a18055-91a3-7810-8bd7-3a837d9b3f6c';
 const capture = join(stateDir, 'history-requests.jsonl');
@@ -24,9 +24,16 @@ function cli(reply: object, behavior = '') {
 beforeEach(() => { mkdirSync(stateDir, { recursive: true }); writeFileSync(capture, ''); });
 
 describe('Codex history projection', () => {
-  test('returns display metadata, excluding paths and arbitrary fields', () => {
+  test('project choices expose only saved IDs, labels and bounded local roots', () => {
+    expect(projectCatalog({ data: [
+      { id, name: 'My project', roots: [{ path: '/projects/source' }, { path: '/bad\0root' }, {}], token: 'private-secret' },
+      { id: '../forged', name: 'Forged', roots: [{ path: '/outside' }] },
+      { id, name: 'No local root', roots: [] },
+    ] })).toEqual({ projects: [{ id, name: 'My project', roots: ['/projects/source'] }], nextCursor: null });
+  });
+  test('returns authorized workspace metadata, excluding arbitrary fields', () => {
     expect(projectHistory({ data: [{ id, name: '<img src=x onerror=steal()>', updatedAt: 123, cwd: '/private/path', token: 'secret' }, { id: '../../auth.json' }], nextCursor: 'page2' }))
-      .toEqual({ threads: [{ id, title: '<img src=x onerror=steal()>', updatedAt: 123000 }], nextCursor: 'page2' });
+      .toEqual({ threads: [{ id, title: '<img src=x onerror=steal()>', updatedAt: 123000, cwd: '/private/path' }], nextCursor: 'page2' });
   });
   test('projects text messages only, never shell output, reasoning, attachments, or auth fields', () => {
     const result = projectHistory({ thread: { id, preview: 'test', turns: [{ items: [
@@ -49,6 +56,19 @@ describe('Codex history projection', () => {
 });
 
 describe('read-only Codex process', () => {
+  test('reads the native project catalog with experimental API support and no model turn', async () => {
+    cli({ data: [{ id, name: 'Project', roots: [{ path: '/projects/source' }] }] });
+    expect(await codexHistory({ operation: 'projects' })).toMatchObject({ ok: true, data: { projects: [{ id }] } });
+    const requests = readFileSync(capture, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    expect(requests.map((m) => m.method)).toEqual(['initialize', 'initialized', 'project/list']);
+    expect(requests[0].params.capabilities.experimentalApi).toBe(true);
+  });
+  test('filters history by the native project identity without scanning stale rollouts', async () => {
+    cli({ data: [] });
+    expect(await codexHistory({ projectId: id })).toMatchObject({ ok: true });
+    const requests = readFileSync(capture, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    expect(requests[2]).toMatchObject({ method: 'thread/list', params: { projectId: id, useStateDbOnly: true } });
+  });
   test('lists desktop, CLI and app-server chats, without starting an agent turn', async () => {
     cli({ data: [{ id, preview: 'Local chat' }], nextCursor: 'next' });
     expect(await codexHistory({ cursor: 'opaque' })).toMatchObject({ ok: true, data: { threads: [{ id }], nextCursor: 'next' } });
@@ -66,6 +86,8 @@ describe('read-only Codex process', () => {
     expect(await codexHistory({ threadId: '../../auth.json' })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
     expect(await codexHistory({ cursor: {} })).toMatchObject({ ok: false });
     expect(await codexHistory({ cursor: 'x'.repeat(2049) })).toMatchObject({ ok: false });
+    expect(await codexHistory({ projectId: '../../outside' })).toMatchObject({ ok: false });
+    expect(await codexHistory({ operation: 'turn/start' })).toMatchObject({ ok: false });
     expect(readFileSync(capture, 'utf8')).toBe('');
   });
   test('never returns arbitrary CLI errors or stderr containing secrets', async () => {
