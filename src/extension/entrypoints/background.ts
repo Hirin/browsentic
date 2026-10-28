@@ -30,6 +30,8 @@ import { autoPair, holdAutoPair, releaseAutoPair, serveAutoPair } from '@/lib/br
 import { serveDeviceNotices } from '@/lib/bridge/device-notices';
 import { isAgentKind } from '@/lib/agents/catalog';
 import { isPreferenceChange } from '@/lib/settings/preferences';
+import { historyUiSender } from '@/lib/codex-history';
+import { readCodexHistory } from '@/lib/bridge/socket';
 import {
   RECONNECT_ALARM,
   chooseAgent,
@@ -53,6 +55,16 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!isBridgeRequest(message)) return;
+    if (message.op === 'codexHistory') {
+      if (!historyUiSender(sender, browser.runtime.id, browser.runtime.getURL('/'))) {
+        sendResponse(failure('BLOCKED', 'Local Codex history is available only in the extension side panel.'));
+        return;
+      }
+      readCodexHistory({ threadId: message.threadId, cursor: message.cursor })
+        .then(sendResponse)
+        .catch(() => sendResponse(failure('CODEX_HISTORY_FAILED', 'Could not read local Codex history.')));
+      return true;
+    }
     if (message.op === 'describe') {
       sendResponse(success(describeOwnActions()));
       return;

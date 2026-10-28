@@ -17,6 +17,34 @@ import { AGENT_KINDS, type AgentKind } from '@/lib/agents/catalog';
 
 const CODE_TOOLS = ['page.injectCode', 'page.runCode'];
 
+test('an imported desktop thread resumes the exact Codex ID with the contained browser MCP runner', async () => {
+  const id = '01a18055-91a3-7810-8bd7-3a837d9b3f6c';
+  const dir = join(dirname(configPath), 'imported-codex-test');
+  mkdirSync(dir, { recursive: true });
+  const argsFile = join(dir, 'args.json');
+  const bin = stubCli(join(dir, 'codex'), `
+    if (process.argv.includes('--version')) { console.log('codex-cli 0.163.0'); process.exit(0); }
+    require('fs').writeFileSync(${JSON.stringify(argsFile)}, JSON.stringify(process.argv.slice(2)));
+    if (process.argv[2] !== 'exec') process.exit(1);
+    console.log(JSON.stringify({type:'thread.started',thread_id:${JSON.stringify(id)}}));
+    console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:'answer',text:'Continued'}}));
+    console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:2}}));
+  `);
+  writeFileSync(configPath, JSON.stringify(onlyAgent('codex', bin)));
+  const events: RunEvent[] = [];
+  const agent = new AgentSession({ invoke: async () => success({}), emit: (_runId, event) => events.push(event), draft: () => {}, actionNames: () => ['page.getPageInfo'] });
+  agent.handle({ t: 'instruct', id: 'history-run', text: 'Continue this conversation.', context: { sessionId: `codex:${id}`, agent: 'codex', agentSessionId: id, url: 'https://example.com' } });
+  await vi.waitFor(() => expect(events.some((event) => event.kind === 'done' || event.kind === 'error')).toBe(true), { timeout: 10_000 });
+  expect(events.filter((event) => event.kind === 'error')).toEqual([]);
+  const args = JSON.parse(readFileSync(argsFile, 'utf8')) as string[];
+  expect(args.slice(0, 3)).toEqual(['exec', 'resume', id]);
+  expect(args).toContain('--ignore-user-config');
+  expect(args).toContain('features.shell_tool=false');
+  expect(args).toContain('features.view_image=false');
+  expect(args).toContain('sandbox_mode="read-only"');
+  expect(args.some((arg) => arg.startsWith('mcp_servers.browsentic.command='))).toBe(true);
+});
+
 /** Only the named agent can be found, so the readiness probe starts none of the CLIs installed on this machine. */
 const onlyAgent = (agent: AgentKind, bin: string) => ({
   agent,

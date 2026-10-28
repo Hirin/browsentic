@@ -14,6 +14,8 @@ process.env.USERPROFILE = home;
 process.env.BROWSENTIC_HOME = join(home, '.browsentic');
 process.env.BROWSENTIC_PORTS = '0';
 delete process.env.BROWSENTIC_AGENT_RUN;
+// A desktop-launched test runner may inherit the real Codex home.
+delete process.env.CODEX_HOME;
 
 if (homedir() === realHome) throw new Error(`the test sandbox did not move HOME away from ${realHome}`);
 

@@ -103,6 +103,7 @@ import { log } from './log';
 import { applyPreference, markConfig, preferencesNow, watchConfig } from './preferences';
 import { readLockfile, writeLockfile, clearLockfile, releaseWake, type Lockfile } from './lockfile';
 import { daemonPorts } from './ports';
+import { codexHistory } from './codex-history';
 
 type AgentFrame = Extract<SocketFrame, { t: 'agentState' | 'setAgent' | 'setAgentModel' | 'grantAgent' }>;
 type TaskFrame = Extract<SocketFrame, { t: 'tasks' | 'saveTask' | 'deleteTask' | 'pauseTasks' }>;
@@ -507,6 +508,10 @@ export async function startDaemon({ version, idleExit = true, android = androidO
         }
         if (request.t === 'cancelAnalysis') {
           analyses.cancel(request.fileId);
+          return;
+        }
+        if (request.t === 'codexHistory') {
+          void codexHistory(request).then((result) => source.send({ t: 'codexHistoryResult', id: request.id, result }));
           return;
         }
         if (request.t === 'nameSession') {

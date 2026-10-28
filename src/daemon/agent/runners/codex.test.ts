@@ -214,6 +214,18 @@ describe('a streamed run', () => {
     ]);
   });
 
+  test('context settings carry into a contained resume, without user hooks or permissive settings', () => {
+    userConfig('model_context_window = 1_000_000\nmodel_auto_compact_token_limit = 800000\napproval_policy = "never"\nsandbox_mode = "danger-full-access"\n[profiles.other]\nmodel_context_window = 2000000\n');
+    const args = stream({ sessionId: '01a18055-91a3-7810-8bd7-3a837d9b3f6c' }).args;
+    expect(args).toContain('model_context_window=1000000');
+    expect(args).toContain('model_auto_compact_token_limit=800000');
+    expect(args).toContain('sandbox_mode="read-only"');
+    expect(args.join(' ')).not.toContain('danger-full-access');
+    expect(args).not.toContain('model_context_window=2000000');
+    userConfig('model_context_window = "1;touch /tmp/injected"\nmodel_auto_compact_token_limit = -1\n');
+    expect(stream().args.some((arg) => arg.startsWith('model_context_window=') || arg.startsWith('model_auto_compact_token_limit='))).toBe(false);
+  });
+
   test('an effort Codex does not accept is dropped rather than failing the run', () => {
     const args = codexRunner.stream(streamContext({ bin: 'codex', effort: 'max' })).args;
     expect(args.some((arg) => arg.startsWith('model_reasoning_effort='))).toBe(false);

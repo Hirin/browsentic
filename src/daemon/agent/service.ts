@@ -599,6 +599,12 @@ export class AgentSession {
     const budget = allowance ? setTimeout(() => run.abort.abort(), allowance) : undefined;
     const onDemand = this.onDemand(run);
 
+    // A desktop thread has no Browsentic dynamic tools (those are fixed at creation).
+    // The contained exec runner adds this run's gated MCP tools when resuming it.
+    const turnConfig = config.agent === 'codex' && supplied && sessionId === `codex:${supplied}`
+      ? { ...run.config, agents: { ...run.config.agents, codex: { ...run.config.agents.codex, transport: 'exec' } } }
+      : run.config;
+
     try {
       const outcome = await runInstruction({
         runId,
@@ -606,7 +612,7 @@ export class AgentSession {
         instruction: instructionText,
         systemPrompt: built.prompt,
         research: run.map ? run.map.settings.research : false,
-        config: run.config,
+        config: turnConfig,
         sessionId: resuming,
         mcpTools: agentRunToolNames(this.deps.actionNames().filter((name) => !onDemand.includes(name))),
         toolsListed: () => run.listed,

@@ -22,6 +22,7 @@ import { RecordingPanel } from '@/extension/components/recording-panel';
 import { RunTimeline } from '@/extension/components/run-timeline';
 import { KeepToolPrompt, SavedToolList } from '@/extension/components/saved-tools';
 import { SessionList } from '@/extension/components/session-list';
+import { CodexHistoryPanel } from '@/extension/components/codex-history';
 import { SessionRail } from '@/extension/components/session-rail';
 import { SiteMapReview } from '@/extension/components/site-map-review';
 import { SkillsPanel } from '@/extension/components/skills-panel';
@@ -409,6 +410,8 @@ export default function App() {
               />
             )
           ) : tab === 'history' ? (
+            <>
+            <CodexHistoryPanel connected={connected} busy={run.running} onOpen={openSession} />
             <SessionList
               sessions={sessions}
               currentId={run.sessionId ?? undefined}
@@ -416,6 +419,7 @@ export default function App() {
               onOpen={openSession}
               onRemove={(id) => void removeSession(id)}
             />
+            </>
           ) : tab === 'skills' ? (
             <SkillsPanel tabUrl={tabUrl} connected={connected} onMapSite={mapSite} mapping={run.running} />
           ) : tab === 'tasks' ? (

@@ -235,6 +235,7 @@ export const codexRunner: Runner = {
         ...(context.sessionId ? ['resume', context.sessionId] : []),
         '--json',
         WITHOUT_USER_CONFIG,
+        ...contextWindowDefaults(),
         ...SANDBOX,
         ...NO_SHELL,
         ...NO_IMAGE_VIEWER,
@@ -447,6 +448,18 @@ function explain(raw: string | undefined): string | undefined {
 }
 
 const codexHome = () => process.env.CODEX_HOME || join(homedir(), '.codex');
+
+/** Carry only numeric context settings; user MCPs, hooks and permissions stay excluded. */
+function contextWindowDefaults(): string[] {
+  try {
+    const root = readFileSync(join(codexHome(), 'config.toml'), 'utf8').split(/^\s*\[/m)[0];
+    return [...root.matchAll(/^\s*(model_context_window|model_auto_compact_token_limit)\s*=\s*([0-9][0-9_]*)\s*(?:#.*)?$/gm)]
+      .flatMap(([, key, literal]) => {
+        const value = Number(literal.replaceAll('_', ''));
+        return Number.isSafeInteger(value) && value > 0 && value <= 10_000_000 ? ['-c', `${key}=${value}`] : [];
+      });
+  } catch { return []; }
+}
 
 /**
  * A run leaves the user's config.toml out, so the model and effort they chose for Codex itself are

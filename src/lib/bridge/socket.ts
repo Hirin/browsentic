@@ -250,6 +250,19 @@ export function sendNotice(notice: DeviceNotice): Promise<boolean> {
 }
 
 const pendingSessionNames = new Map<string, (result: ActionResult<{ title: string }>) => void>();
+const pendingCodexHistory = new Map<string, (result: ActionResult<import('@/lib/codex-history').CodexHistory>) => void>();
+
+export function readCodexHistory(query: { threadId?: string; cursor?: string }): Promise<ActionResult<import('@/lib/codex-history').CodexHistory>> {
+  const id = crypto.randomUUID();
+  if (!post({ t: 'codexHistory', id, ...query })) return Promise.resolve(failure('EXTENSION_OFFLINE', 'Pair the browser with Browsentic first.'));
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingCodexHistory.delete(id);
+      resolve(failure('TIMEOUT', 'Local Codex history did not respond in time.'));
+    }, 25_000);
+    pendingCodexHistory.set(id, (result) => { clearTimeout(timer); resolve(result); });
+  });
+}
 
 export function nameSession(session: { host?: string; messages: string[] }): Promise<ActionResult<{ title: string }>> {
   const id = crypto.randomUUID();
@@ -839,6 +852,11 @@ async function handle(ws: WebSocket, raw: string, attempt: Attempt): Promise<voi
       pendingRecordings.delete(frame.id);
       return;
     }
+
+    case 'codexHistoryResult':
+      pendingCodexHistory.get(frame.id)?.(frame.result);
+      pendingCodexHistory.delete(frame.id);
+      return;
 
     case 'agentInfo': {
       pendingAgentOps.get(frame.id)?.(frame.result);

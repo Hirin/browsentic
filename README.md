@@ -173,3 +173,7 @@ Browsentic is licensed under the [Apache License 2.0](LICENSE). Versions up to 0
 **Short answer:** "Browse" + "agentic".
 
 **Long answer:** Most browser automation hands the work to a *different* browser: a headless one, in a container, logged in to nothing. Browsentic works the other way round. The agent acts in the browser you are already looking at, with the sessions you are already signed in to: browsing, made agentic, where you already browse.
+
+## Local Codex history in this fork
+
+This fork adds saved local Codex chats to the browser side panel. Open **History → Codex on this computer** to read and continue an existing thread using contained browser tools. See [the guide](docs/guide/codex-local-history.md) for the data boundary and setup details.

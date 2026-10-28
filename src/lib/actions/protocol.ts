@@ -58,6 +58,7 @@ export type BridgeRequest =
   | { channel: typeof BRIDGE_CHANNEL; op: 'saveSkill'; skillId: string }
   | { channel: typeof BRIDGE_CHANNEL; op: 'removeSkill'; skillId: string }
   | { channel: typeof BRIDGE_CHANNEL; op: 'nameSession'; sessionId: string }
+  | { channel: typeof BRIDGE_CHANNEL; op: 'codexHistory'; threadId?: string; cursor?: string }
   | { channel: typeof BRIDGE_CHANNEL; op: 'recordEvents'; events: RecordedEvent[] }
   | { channel: typeof BRIDGE_CHANNEL; op: 'recordingState' }
   | { channel: typeof BRIDGE_CHANNEL; op: 'analyzeRecording'; recordingId: string }
@@ -283,6 +284,8 @@ export type SocketFrame =
   | { t: 'discardSiteMap'; id: string; stagingId: string }
   | { t: 'nameSession'; id: string; host?: string; messages: string[] }
   | { t: 'sessionName'; id: string; result: ActionResult<{ title: string }> }
+  | { t: 'codexHistory'; id: string; threadId?: string; cursor?: string }
+  | { t: 'codexHistoryResult'; id: string; result: ActionResult<import('@/lib/codex-history').CodexHistory> }
   | { t: 'analyzeRecording'; id: string; recording: RecordingPayload }
   | { t: 'recordingWorkflow'; id: string; result: ActionResult<RecordingAnalysis> }
   | { t: 'agentState'; id: string; refresh?: boolean }
@@ -337,6 +340,7 @@ export const EXTENSION_REQUEST_FRAMES = [
   'activateSiteMap',
   'discardSiteMap',
   'nameSession',
+  'codexHistory',
   'analyzeRecording',
   'agentState',
   'setAgent',
