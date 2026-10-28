@@ -118,4 +118,3 @@ describe('revision-bound project edits', () => {
     ]) expect(() => workspace.prepare({ path: 'code.ts', sha256, startLine: 1, endLine: 1, text: 'new', ...patch })).toThrow();
   });
 });
-

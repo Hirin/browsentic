@@ -174,6 +174,6 @@ Browsentic is licensed under the [Apache License 2.0](LICENSE). Versions up to 0
 
 **Long answer:** Most browser automation hands the work to a *different* browser: a headless one, in a container, logged in to nothing. Browsentic works the other way round. The agent acts in the browser you are already looking at, with the sessions you are already signed in to: browsing, made agentic, where you already browse.
 
-## Local Codex history in this fork
+## Local Codex projects and history in this fork
 
-This fork adds saved local Codex chats to the browser side panel. Open **History → Codex on this computer** to read and continue an existing thread using contained browser tools. See [the guide](docs/guide/codex-local-history.md) for the data boundary and setup details.
+This fork connects the side panel to projects and saved chats from the local Codex installation. Choose **Codex project**, then open a chat in **History → Codex on this computer** or start a new one. The agent can read project text files and propose edits; every edit shows a preview and needs approval in the extension. **Sync chat** refreshes messages saved by another Codex client. Keep one active turn per shared chat. See [the guide](docs/guide/codex-local-history.md) for setup and security boundaries.
