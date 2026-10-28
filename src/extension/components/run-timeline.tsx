@@ -212,9 +212,15 @@ function ToolRow({
         </button>
       )}
 
+      {item.action === 'browsentic.workspacePatch' && item.awaiting && (
+        <div className="rounded-lg border border-line bg-ground p-2">
+          <p className="mb-1 text-xs font-medium text-ink">Review proposed project file edit</p>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-ink-dim">{JSON.stringify(item.input, null, 2)}</pre>
+        </div>
+      )}
       {item.awaiting && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-ember/45 bg-ember/10 px-2.5 py-2">
-          <p className="flex-1 text-xs text-ink">{source ? 'Allow this code to run?' : 'Allow this action?'}</p>
+          <p className="flex-1 text-xs text-ink">{item.action === 'browsentic.workspacePatch' ? 'Allow this project file edit?' : source ? 'Allow this code to run?' : 'Allow this action?'}</p>
           {source && (
             <Button size="sm" variant="ghost" onClick={() => setReviewing(true)} title="Read the code before deciding">
               Review
@@ -223,7 +229,7 @@ function ToolRow({
           <Button size="sm" variant="ghost" onClick={() => onDecide(item.id, false)}>
             Deny
           </Button>
-          {item.site && !source && (
+          {item.site && !source && item.action !== 'browsentic.workspacePatch' && (
             <Button
               size="sm"
               variant="ghost"

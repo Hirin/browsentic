@@ -12,6 +12,7 @@ import { RUN_PORT, type RunCommand, type RunMessage } from './run-port';
 import { useActiveTab, type ActiveTab } from './use-active-tab';
 import { useTabSessions } from './use-tab-sessions';
 import type { TabSession } from './tab-sessions';
+import { useCodexProject } from './use-codex-project';
 
 const RECONNECT_MS = 1_000;
 
@@ -45,6 +46,7 @@ export interface Run {
   cancel: () => void;
   decide: (toolId: string, allow: boolean, remember?: boolean) => void;
   clear: () => void;
+  sync: () => void;
   restore: (sessionId: string) => Promise<void>;
   focusSession: (sessionId: string) => void;
   endSession: (sessionId: string) => void;
@@ -85,6 +87,7 @@ export function useRun(pinned?: ActiveTab): Run {
   const [completed, setCompleted] = useState<CompletedTurn | null>(null);
   const port = useRef<Browser.runtime.Port | null>(null);
 
+  const [selectedProjectId] = useCodexProject();
   const front = useActiveTab();
   const tab = pinned ?? front;
   const sessions = useTabSessions();
@@ -218,11 +221,21 @@ export function useRun(pinned?: ActiveTab): Run {
         agentSkillId: opts?.agentSkillId,
         focus: opts?.focus,
         liveTools: opts?.liveTools,
+        projectId: displayed?.projectId ?? selectedProjectId ?? undefined,
         tab: { tabId: tab.tabId, url: tab.url, windowId: tab.windowId, title: tab.title },
       });
     },
-    [post, tab],
+    [post, tab, displayed?.projectId, selectedProjectId],
   );
+
+  const sync = useCallback(() => {
+    if (sessionId && !displayed?.runId) post({ op: 'syncCodex', sessionId });
+  }, [post, sessionId, displayed?.runId]);
+  useEffect(() => {
+    if (displayed?.agent !== 'codex' || !displayed.agentSessionId || displayed.runId) return;
+    window.addEventListener('focus', sync);
+    return () => window.removeEventListener('focus', sync);
+  }, [displayed?.agent, displayed?.agentSessionId, displayed?.runId, sync]);
 
   const focusSession = useCallback((target: string) => {
     const session = sessions.find((s) => s.sessionId === target);
@@ -348,6 +361,7 @@ export function useRun(pinned?: ActiveTab): Run {
       [post, forget],
     ),
     restore,
+    sync,
     focusSession,
   };
 }

@@ -23,6 +23,8 @@ import { RunTimeline } from '@/extension/components/run-timeline';
 import { KeepToolPrompt, SavedToolList } from '@/extension/components/saved-tools';
 import { SessionList } from '@/extension/components/session-list';
 import { CodexHistoryPanel } from '@/extension/components/codex-history';
+import { CodexProjectPicker } from '@/extension/components/codex-project-picker';
+import { useCodexProject } from '@/lib/bridge/use-codex-project';
 import { SessionRail } from '@/extension/components/session-rail';
 import { SiteMapReview } from '@/extension/components/site-map-review';
 import { SkillsPanel } from '@/extension/components/skills-panel';
@@ -70,6 +72,7 @@ export default function App() {
   const daemon = useDaemonState();
   useAutoPair(daemon);
   const run = useRun();
+  const [projectId, selectProject] = useCodexProject();
   const star = useStarNudge(run.completed, run.sessionId, run.running);
   const update = useWaitingUpdate();
   const [voiceEnabled, setVoiceEnabled] = useVoiceEnabled();
@@ -354,6 +357,7 @@ export default function App() {
           <PanelRightClose className="size-3.5" />
         </Button>
       </header>
+      <CodexProjectPicker onSync={run.sessions.some((session) => session.sessionId === run.sessionId && session.agent === 'codex' && session.agentSessionId) ? run.sync : undefined} connected={connected} busy={run.running} value={projectId} onSelect={(id) => { run.clear(); void selectProject(id); open('history'); }} />
 
       {connectionOpen && <ConnectionSheet onClose={() => setConnectionOpen(false)} />}
 
@@ -411,7 +415,7 @@ export default function App() {
             )
           ) : tab === 'history' ? (
             <>
-            <CodexHistoryPanel connected={connected} busy={run.running} onOpen={openSession} />
+            <CodexHistoryPanel projectId={projectId} connected={connected} busy={run.running} onOpen={openSession} />
             <SessionList
               sessions={sessions}
               currentId={run.sessionId ?? undefined}

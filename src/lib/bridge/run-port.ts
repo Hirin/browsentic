@@ -1,3 +1,6 @@
+import { readCodexHistory } from './socket';
+import { CODEX_PROJECT_KEY } from '@/lib/codex-history';
+import { WORKSPACE_PATCH, workspaceUiSender } from '@/lib/workspace-tools';
 import { browser, type Browser } from 'wxt/browser';
 import {
   EXTERNAL_RUN_ID,
@@ -98,6 +101,8 @@ import {
   type TaskTag,
 } from './tab-sessions';
 
+const protectedProjectSessions = new Set<string>();
+
 export const RUN_PORT = 'browsentic/run';
 
 const LOCAL_RUN = 'local';
@@ -111,12 +116,13 @@ const MAX_EXTERNAL_ITEMS = 100;
 const TAB_LOAD_WAIT_MS = 15_000;
 
 export type RunCommand =
-  | { op: 'instruct'; text: string; tab: TabAnchor; agentSkillId?: string; focus?: FocusedElement; liveTools?: boolean }
+  | { op: 'instruct'; text: string; tab: TabAnchor; agentSkillId?: string; focus?: FocusedElement; liveTools?: boolean; projectId?: string }
   | { op: 'cancel'; sessionId: string }
   | { op: 'decision'; sessionId: string; toolId: string; allow: boolean; remember?: boolean }
   | { op: 'endSession'; sessionId: string }
   | { op: 'replay'; sessionId: string }
   | { op: 'restore'; sessionId: string; tab: TabAnchor }
+  | { op: 'syncCodex'; sessionId: string }
   | { op: 'activateMap'; stagingId: string; exactHost?: boolean }
   | { op: 'discardMap'; stagingId: string }
   | { op: 'startRecording'; captureValues: boolean }
@@ -175,6 +181,7 @@ export function serveRunPorts(): void {
     void serialized(async () => {
       const session = runId ? await sessionForRun(runId) : null;
       if (session) {
+        if (session.projectId) protectedProjectSessions.add(session.sessionId);
         const items = attachPreview(await bufferFor(session.sessionId), preview);
         buffers.set(session.sessionId, items);
       }
@@ -252,7 +259,7 @@ export function serveRunPorts(): void {
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== RUN_PORT) return;
     ports.add(port);
-    if (port.sender?.url?.includes('sidepanel.html')) {
+    if (workspaceUiSender(port.sender, browser.runtime.id, browser.runtime.getURL('/')) && port.sender?.url?.endsWith('/sidepanel.html')) {
       panelPorts.add(port);
       if (panelPorts.size === 1) for (const watch of panelWatchers) watch(true);
     }
@@ -270,7 +277,7 @@ export function serveRunPorts(): void {
       void acknowledgeCompleted();
     });
 
-    port.onMessage.addListener((message) => handle(message as RunCommand));
+    port.onMessage.addListener((message) => handle(message as RunCommand, workspaceUiSender(port.sender, browser.runtime.id, browser.runtime.getURL('/'))));
     port.onDisconnect.addListener(() => {
       ports.delete(port);
       if (panelPorts.delete(port) && panelPorts.size === 0) for (const watch of panelWatchers) watch(false);
@@ -310,27 +317,35 @@ export function runCommand(command: RunCommand): void {
   handle(command);
 }
 
-function handle(command: RunCommand): void {
+function handle(command: RunCommand, trustedUi = false): void {
   switch (command.op) {
     case 'instruct':
-      void serialized(() => instruct(command.text, command.tab, command.agentSkillId, command.focus, command.liveTools));
+      void serialized(() => instruct(command.text, command.tab, command.agentSkillId, command.focus, command.liveTools, command.projectId, trustedUi));
       return;
     case 'cancel':
       void serialized(() => stopRun(command.sessionId));
       return;
     case 'decision':
-      void serialized(() => answerApproval(command.sessionId, command.toolId, command.allow, command.remember));
+      void serialized(() => answerApproval(command.sessionId, command.toolId, command.allow, command.remember, trustedUi));
       return;
     case 'endSession':
       void serialized(() => endSession(command.sessionId));
       return;
     case 'replay':
       void serialized(async () => {
+        const session = (await readTabSessions())[command.sessionId];
+        if (session?.projectId) {
+          protectedProjectSessions.add(command.sessionId);
+          if (!trustedUi) return;
+        }
         broadcast({ op: 'items', sessionId: command.sessionId, items: await bufferFor(command.sessionId) });
       });
       return;
+    case 'syncCodex':
+      if (trustedUi) void serialized(() => syncCodex(command.sessionId));
+      return;
     case 'restore':
-      void serialized(() => restore(command.sessionId, command.tab));
+      void serialized(() => restore(command.sessionId, command.tab, trustedUi));
       return;
     case 'activateMap':
     case 'discardMap': {
@@ -423,9 +438,10 @@ function handle(command: RunCommand): void {
   }
 }
 
-async function answerApproval(sessionId: string, toolId: string, allow: boolean, remember?: boolean): Promise<void> {
+async function answerApproval(sessionId: string, toolId: string, allow: boolean, remember?: boolean, trustedUi = false): Promise<void> {
   const session = (await readTabSessions())[sessionId];
   if (!session?.runId) return;
+  if (allow && !trustedUi && (session.projectId || protectedProjectSessions.has(sessionId) || session.pendingApproval?.action === WORKSPACE_PATCH)) return;
   buffers.set(sessionId, patchTool(await bufferFor(sessionId), toolId, { awaiting: false }));
   await patchSession(sessionId, { pendingApproval: undefined });
   sendDecision(session.runId, toolId, allow, remember);
@@ -479,6 +495,7 @@ async function absorb(runId: string, event: RunEvent): Promise<void> {
   const session = await sessionForRun(runId);
   if (!session) return;
   const { sessionId } = session;
+  if (session.projectId) protectedProjectSessions.add(sessionId);
 
   buffers.set(sessionId, reduce(await bufferFor(sessionId), event));
   broadcast({ op: 'event', sessionId, runId, event });
@@ -534,7 +551,7 @@ async function settle(sessionId: string): Promise<void> {
 
   const session = (await readTabSessions())[sessionId];
   if (session) {
-    turnOver(session.currentTabId, buffers.get(sessionId) ?? []);
+    if (!session.projectId && !protectedProjectSessions.has(sessionId)) turnOver(session.currentTabId, buffers.get(sessionId) ?? []);
     const tab = await browser.tabs.get(session.currentTabId).catch(() => null);
     if (tab?.url) await patchSession(sessionId, { url: tab.url, host: hostOf(tab.url) });
   }
@@ -563,6 +580,8 @@ async function instruct(
   agentSkillId?: string,
   focus?: FocusedElement,
   liveTools?: boolean,
+  projectId?: string,
+  trustedUi = false,
 ): Promise<void> {
   const ensured = await ensureConversation(anchor);
   if (!ensured.ok) {
@@ -576,6 +595,19 @@ async function instruct(
   }
 
   const { sessionId } = ensured.session;
+  if (ensured.session.projectId || projectId) {
+    protectedProjectSessions.add(sessionId);
+    if (!trustedUi) return;
+  }
+  if (projectId && ensured.session.projectId !== projectId) {
+    if (ensured.session.turns > 0) {
+      await append(sessionId, notice('error', 'Start a new chat before changing this conversation’s project.'));
+      return;
+    }
+    await patchSession(sessionId, { projectId, agent: 'codex' });
+    ensured.session.projectId = projectId;
+    ensured.session.agent = 'codex';
+  }
   if (isContextCommand(text)) {
     const breakdown = await contextBreakdown(ensured.session, await bufferFor(sessionId));
     await append(sessionId, { kind: 'user', id: nextId(), text: CONTEXT_COMMAND });
@@ -590,7 +622,7 @@ async function instruct(
       notice('error', 'RUN_IN_PROGRESS: This conversation is still running — stop it before sending another instruction.'),
     );
   }
-  if (outcome !== 'started') turnOver(anchor.tabId, await bufferFor(sessionId));
+  if (outcome !== 'started' && !ensured.session.projectId && !protectedProjectSessions.has(sessionId)) turnOver(anchor.tabId, await bufferFor(sessionId));
 }
 
 type TurnOutcome = 'started' | 'local' | 'busy' | 'offline';
@@ -624,6 +656,7 @@ async function startTurn(
       sessionId,
       agent: session.agent,
       agentSessionId: session.agentSessionId,
+      projectId: session.projectId,
       agentSkillId,
       focus: hidden ? undefined : focus,
       liveTools,
@@ -719,7 +752,12 @@ async function endSession(sessionId: string): Promise<void> {
   await syncRunIndicator();
 }
 
-async function restore(sessionId: string, anchor: TabAnchor): Promise<void> {
+async function restore(sessionId: string, anchor: TabAnchor, trustedUi = false): Promise<void> {
+  const storedMeta = (await listSessions()).find((session) => session.id === sessionId);
+  if (storedMeta?.projectId) {
+    protectedProjectSessions.add(sessionId);
+    if (!trustedUi) return;
+  }
   const live = Object.values(await readTabSessions()).find((s) => s.sessionId === sessionId);
   if (live) return;
 
@@ -738,7 +776,7 @@ async function restore(sessionId: string, anchor: TabAnchor): Promise<void> {
     orphanDrafts(owner.sessionId);
   }
 
-  const meta = (await listSessions()).find((s) => s.id === sessionId);
+  const meta = storedMeta;
   if (!meta) return;
   const transcript = await readTranscript(sessionId);
   buffers.set(
@@ -753,6 +791,7 @@ async function restore(sessionId: string, anchor: TabAnchor): Promise<void> {
       turns: meta.turns,
       agent: meta.agent,
       agentSessionId: meta.agentSessionId,
+      projectId: meta.projectId,
       usage: meta.usage,
       url: serial ? anchored.url : meta.url,
       title: titleOf(meta) ?? anchored.title,
@@ -765,6 +804,28 @@ async function restore(sessionId: string, anchor: TabAnchor): Promise<void> {
   if (!serial && meta.url && /^https?:$/.test(safeProtocol(meta.url))) {
     await invokeForHarness(navigate.name, { url: meta.url }, session.currentTabId).catch(() => undefined);
   }
+}
+
+async function syncCodex(sessionId: string): Promise<void> {
+  const session = (await readTabSessions())[sessionId];
+  if (!session || session.runId || session.agent !== 'codex' || !session.agentSessionId) return;
+  const result = await readCodexHistory({ threadId: session.agentSessionId });
+  if (!result.ok) {
+    await append(sessionId, notice('error', result.error.message));
+    return;
+  }
+  // A turn can have begun while the read was in flight. Never replace a live transcript.
+  if ((await readTabSessions())[sessionId]?.runId) return;
+  const { thread, messages = [] } = result.data;
+  if (!thread || thread.id !== session.agentSessionId) return;
+  if (thread.projectId) protectedProjectSessions.add(sessionId);
+  const items: RunItem[] = messages.map((message) => ({ kind: message.role, id: crypto.randomUUID(), text: message.text }));
+  items.push(notice('info', 'Synced with the saved Codex conversation.'));
+  buffers.set(sessionId, items);
+  await patchSession(sessionId, { projectId: thread.projectId, turns: messages.filter((message) => message.role === 'user').length });
+  await browser.storage.local.set({ [CODEX_PROJECT_KEY]: thread.projectId ?? null });
+  await persist(sessionId);
+  broadcast({ op: 'items', sessionId, items });
 }
 
 async function bufferFor(sessionId: string): Promise<RunItem[]> {
@@ -811,6 +872,7 @@ async function persist(sessionId: string, known?: TabSession): Promise<void> {
       host: session?.host ?? stored?.host,
       agent: session?.agent ?? stored?.agent,
       agentSessionId: session?.agentSessionId ?? stored?.agentSessionId,
+      ...(session?.projectId ?? stored?.projectId ? { projectId: session?.projectId ?? stored?.projectId } : {}),
       usage: session?.usage ?? stored?.usage,
       createdAt: session?.createdAt ?? stored?.createdAt ?? now,
       updatedAt: now,
@@ -1146,7 +1208,11 @@ function safeProtocol(url: string): string {
 }
 
 function broadcast(message: RunMessage): void {
-  for (const port of ports) post(port, message);
+  const sensitive = 'sessionId' in message && message.sessionId && protectedProjectSessions.has(message.sessionId);
+  for (const port of ports) {
+    if (sensitive && !workspaceUiSender(port.sender, browser.runtime.id, browser.runtime.getURL('/'))) continue;
+    post(port, message);
+  }
 }
 
 function post(port: Browser.runtime.Port, message: RunMessage): void {
