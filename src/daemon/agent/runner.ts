@@ -13,6 +13,7 @@ export { RunError };
 export type { RunOutcome };
 
 export interface RunRequest {
+  access?: import('@/lib/codex-access').CodexAccess;
   runId: string;
   /** The conversation the panel is holding, which outlives this one run. */
   conversation: string | null;
@@ -47,6 +48,7 @@ export async function runInstruction(request: RunRequest): Promise<RunOutcome> {
         research: request.research === true,
         settings,
         sessionId: request.sessionId,
+        access: request.access,
         ...(request.project ? { project: request.project } : {}),
         workspace: runner.workspace('run'),
         mcp: mcpServerFor(request.runId, runner.limits),

@@ -43,6 +43,7 @@ export interface CallLimits {
 }
 
 export interface StreamContext {
+  access?: import('@/lib/codex-access').CodexAccess;
   project?: { id: string; cwd: string };
   runId: string;
   /** The panel conversation this run belongs to, which every turn of it shares — unlike `runId`. */
@@ -155,7 +156,7 @@ export interface Runner {
   /** A conversation to hold for this turn instead, where the CLI offers one; null to use `stream`. */
   converse?(context: StreamContext): Conversation | null;
   /** Fresh per run — readers carry state across lines. */
-  reader(): StreamReader;
+  reader(context?: StreamContext): StreamReader;
   /** This CLI's stream has no closing event, so exiting cleanly is how it says the turn is over. */
   endsOnExit?: boolean;
   /**

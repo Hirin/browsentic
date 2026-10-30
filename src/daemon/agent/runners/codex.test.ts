@@ -39,6 +39,24 @@ afterEach(() => {
 });
 
 describe('a streamed run', () => {
+  test('native command and file events are accepted by the exec reader only for a full-access turn', () => {
+    const context = streamContext(settings, { access: 'full', project: { id: 'project-id', cwd: '/approved/project' } });
+    const lines = [
+      { type: 'item.started', item: { id: 'shell', type: 'command_execution' } },
+      { type: 'item.completed', item: { id: 'shell', type: 'command_execution' } },
+      { type: 'item.completed', item: { id: 'patch', type: 'file_change' } },
+    ].map((line) => JSON.stringify(line));
+    const full = readThrough({ ...codexRunner, reader: () => codexRunner.reader(context) }, lines);
+    expect(full.some(([signal]) => signal === 'fail')).toBe(false);
+    expect(full).toContainEqual(['tool', 'shell', 'codex.command_execution']);
+    expect(readThrough(codexRunner, lines).some(([signal]) => signal === 'fail')).toBe(true);
+  });
+  test('full access resumes in the project with native tools and still excludes user MCP configuration', () => {
+    const plan = stream({ access: 'full', sessionId: 'shared-thread', project: { id: 'project-id', cwd: '/approved/project' } });
+    expect(plan.cwd).toBe('/approved/project');
+    expect(plan.args).toEqual(expect.arrayContaining(['sandbox_mode="danger-full-access"', 'approval_policy="never"', 'features.shell_tool=true', '--ignore-user-config']));
+    expect(() => stream({ access: 'full' })).toThrow('validated local project');
+  });
   test('a fresh run registers the browser as its only server and stays in a read-only sandbox', () => {
     expect(flagsOf(shown(stream()))).toMatchInlineSnapshot(`
       {

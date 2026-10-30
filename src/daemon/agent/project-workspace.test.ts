@@ -31,8 +31,8 @@ beforeEach(() => {
 });
 afterEach(() => agent.dispose());
 
-async function start(project = true) {
-  agent.handle({ t: 'instruct', id: 'run', text: 'Inspect the selected project.', context: { sessionId: 'browser-session', ...(project ? { projectId } : {}) } });
+async function start(project = true, access?: 'full' | 'review') {
+  agent.handle({ t: 'instruct', id: 'run', text: 'Inspect the selected project.', context: { sessionId: 'browser-session', access, ...(project ? { projectId } : {}) } });
   if (project) await vi.waitFor(() => expect(agent.offerFor('run')?.reserved).toEqual(expect.arrayContaining(WORKSPACE_ACTIONS)));
 }
 function patch(text: string) { return { path: 'code.txt', sha256: files.read({ path: 'code.txt' }).sha256, startLine: 1, endLine: 1, text }; }
@@ -42,6 +42,17 @@ async function pending(count: number) {
 }
 
 describe('project permissions on agent runs', () => {
+  test('explicit full access writes without an approval, while default runs still ask', async () => {
+    await start(true, 'full');
+    expect(await agent.invokeForRun('run', WORKSPACE_PATCH, patch('full access change'))).toMatchObject({ ok: true, data: { written: true } });
+    expect(events.some((event) => event.kind === 'approval')).toBe(false);
+    expect(readFileSync(join(root, 'code.txt'), 'utf8')).toBe('full access change\n');
+  });
+  test('full access without a selected project never starts', async () => {
+    await start(false, 'full');
+    expect(events).toContainEqual(expect.objectContaining({ kind: 'error', code: 'WORKSPACE_BLOCKED' }));
+    expect(resolveWorkspace).not.toHaveBeenCalled();
+  });
   test('a run without a selected project is offered no file tools and cannot call one directly', async () => {
     await start(false);
     expect(agent.offerFor('run')?.reserved.some((action) => WORKSPACE_ACTIONS.includes(action))).toBe(false);

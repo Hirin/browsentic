@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { validCodexAccess } from '@/lib/codex-access';
 import { WORKSPACE_ACTIONS, WORKSPACE_LIST, WORKSPACE_READ, WORKSPACE_PATCH, isWorkspaceAction } from '@/lib/workspace-tools';
 import { projectWorkspace, WorkspaceError, type PreparedEdit, type WorkspaceFiles } from '../workspace-files';
 import { sealSecretsIn } from '../guardrails/secrets';
@@ -94,6 +95,7 @@ interface ActiveRun {
   sessionId?: string;
   config: AgentConfig;
   workspace?: WorkspaceFiles;
+  fullAccess?: boolean;
   edits?: Map<string, PreparedEdit>;
   policy: Policy;
   scope: Scope;
@@ -326,7 +328,7 @@ export class AgentSession {
       emit({ kind: 'toolResult', toolId, ok: false, summary: `blocked: ${summarizeDecision(decision)}` });
       return blocked(decision);
     }
-    if (decision.effect === 'confirm' && !(run.site && isGranted(action, run.site)) && !run.approved.has(action)) {
+    if (decision.effect === 'confirm' && !run.fullAccess && !(run.site && isGranted(action, run.site)) && !run.approved.has(action)) {
       emit({ kind: 'approval', toolId, action, input, site: run.site });
       const waiting = { key, toolId, action, input, why: describeDecision(decision), decision: this.awaitDecision(run, toolId) };
       return this.answered(run, waiting, signal, startedAt);
@@ -391,6 +393,7 @@ export class AgentSession {
       run.edits ??= new Map();
       run.edits.set(toolId, edit);
       emit({ kind: 'tool', toolId, action, input: edit.preview }); shown = true;
+      if (run.fullAccess) return this.perform(run, toolId, action, edit.preview, startedAt);
       emit({ kind: 'approval', toolId, action, input: edit.preview });
       // File edits never inherit a site grant or a prior approval, including "always" grants.
       return await this.answered(run, { key, toolId, action, input: edit.preview, why: 'Writes the reviewed change to the selected project file.', decision: this.awaitDecision(run, toolId) }, signal, startedAt);
@@ -474,6 +477,9 @@ export class AgentSession {
 
   private async start(runId: string, instruction: string, context?: RunContext): Promise<void> {
     const emit = (event: RunEvent) => this.deps.emit(runId, event);
+    if (context?.access !== undefined && !validCodexAccess(context.access)) return emit({ kind: 'error', code: 'INVALID_INPUT', message: 'Unknown permission mode.' });
+    const fullAccess = context?.access === 'full';
+    if (fullAccess && (!context.projectId || context.phone || context.task)) return emit({ kind: 'error', code: 'WORKSPACE_BLOCKED', message: 'Full access requires an interactive local Codex project chat.' });
 
     const text = instruction.trim();
     if (!text) return emit({ kind: 'error', code: 'INVALID_INPUT', message: 'Say what you want done.' });
@@ -547,6 +553,7 @@ export class AgentSession {
       id: runId,
       sessionId,
       config,
+      fullAccess,
       policy,
       scope,
       site: siteOf(context?.url),
@@ -609,6 +616,7 @@ export class AgentSession {
         const profile = readProfile();
         built = buildSystemPrompt(routed.base, routed.overlays, {
           ...(run.workspace ? { project: JSON.stringify({ name: run.workspace.project.name, roots: run.workspace.roots.map((path, index) => ({ index, folder: basename(path) })) }) } : {}),
+          fullAccess,
           instructions: profile.instructions,
           profile: profileBlock(profile),
           attached,
@@ -673,6 +681,7 @@ export class AgentSession {
         sessionId: resuming,
         mcpTools: agentRunToolNames([...this.deps.actionNames().filter((name) => !onDemand.includes(name)), ...(run.workspace ? WORKSPACE_ACTIONS : [])]),
         ...(run.workspace ? { project: { id: run.workspace.project.id, cwd: run.workspace.roots[0] } } : {}),
+        access: fullAccess ? 'full' : 'review',
         toolsListed: () => run.listed,
         version: runner.version,
         signal: run.abort.signal,

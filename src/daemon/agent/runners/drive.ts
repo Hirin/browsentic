@@ -50,15 +50,15 @@ export function launch(
 }
 
 /** Vets the plan and lays its files down — everything before a process of the CLI exists. */
-function stage(kind: AgentKind, mode: SpawnMode, plan: Plan): void {
-  const problems = vetPlan(kind, mode, plan, stateDir);
+function stage(kind: AgentKind, mode: SpawnMode, plan: Plan, fullAccess = false): void {
+  const problems = vetPlan(kind, mode, plan, stateDir, fullAccess);
   if (problems.length) {
     throw new RunError(
       'AGENT_UNSAFE',
       `Browsentic refused to start ${AGENTS[kind].label}: ${problems.join(' ')} This is a bug in Browsentic, not something you did — please report it.`,
     );
   }
-  log(describeContainment(kind));
+  log(fullAccess ? 'Codex Full access: user authorized native files, shell and network for this turn.' : describeContainment(kind));
 
   mkdirSync(plan.cwd, { recursive: true, mode: 0o700 });
   for (const file of plan.files ?? []) {
@@ -193,7 +193,7 @@ async function drive(
   conversation?: Conversation,
 ): Promise<RunOutcome> {
   const label = AGENTS[runner.kind].label;
-  stage(runner.kind, conversation ? 'conversation' : 'run', plan);
+  stage(runner.kind, conversation ? 'conversation' : 'run', plan, context.access === 'full');
   await prepare(runner, context.settings, plan, signal);
 
   return new Promise<RunOutcome>((resolve, reject) => {
@@ -258,7 +258,7 @@ async function drive(
       stderrTail = (stderrTail + chunk.toString()).slice(-2_000);
     });
 
-    const reader = runner.reader();
+    const reader = runner.reader(context);
     const read = (line: string) => (conversation ? conversation.read(line, sink, io) : reader(line, sink));
     const lines = createInterface({ input: child.stdout });
     lines.on('line', (line) => {

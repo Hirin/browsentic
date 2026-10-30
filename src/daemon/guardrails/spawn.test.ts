@@ -39,6 +39,19 @@ const swapped = (plan: Plan, from: string, to: string): Plan => ({ ...plan, args
 const vibeConfig = (mode: 'run' | 'task', opts?: { research?: boolean; reads?: boolean }) =>
   planOf('vibe', mode, opts).files?.find((file) => file.path === '.vibe/config.toml')?.content ?? '';
 
+test('full access plans still require a separate explicit launch authorization', () => {
+  const context = { ...contextFor('codex', false), access: 'full' as const, sessionId: 'native-thread', project: { id: 'project-id', cwd: '/selected/project' } };
+  const plan = RUNNERS.codex.stream(context);
+  expect(vetPlan('codex', 'run', plan, stateDir).length).toBeGreaterThan(0);
+  expect(vetPlan('codex', 'run', plan, stateDir, true)).toEqual([]);
+  const conversation = RUNNERS.codex.converse!(context)!;
+  expect(vetPlan('codex', 'conversation', conversation.plan, stateDir, true)).toEqual([]);
+  expect(vetPlan('codex', 'task', plan, stateDir, true).length).toBeGreaterThan(0);
+  expect(vetPlan('claude', 'run', plan, stateDir, true).length).toBeGreaterThan(0);
+  const injected = { ...plan, args: ['--yolo', ...plan.args] };
+  expect(vetPlan('codex', 'run', injected, stateDir, true).length).toBeGreaterThan(0);
+});
+
 // The page policy governs what a run may do to a page. Containment governs what the CLI the
 // daemon spawns may do to the machine, which no `page.*` decision ever sees.
 describe('spawn containment', () => {

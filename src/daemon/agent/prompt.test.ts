@@ -20,6 +20,15 @@ const skill = (name: string, body: string, provenance: Skill['provenance'] = 'au
 const base = skill('browser-control', 'Click what the user asked for.');
 const KB = 1024;
 
+test('full access prompt permits native actions and a review turn removes that permission', () => {
+  const full = buildSystemPrompt(base, [], { project: 'Project', fullAccess: true });
+  expect(full.prompt).toContain('native Codex tools');
+  expect(full.prompt).toContain('without per-action approval');
+  expect(full.prompt).not.toContain('Every file edit needs a fresh approval');
+  const reviewed = buildSystemPrompt(base, [], { project: 'Project' });
+  expect(promptUpdate(full.sections, reviewed)?.text).toContain('Full access');
+});
+
 test('local files are authorized only by a selected project and each write still needs approval', () => {
   expect(buildSystemPrompt(base, []).prompt).toContain('do not touch files');
   const { prompt } = buildSystemPrompt(base, [], { project: '{"name":"Project","roots":[{"index":0,"folder":"source"}]}' });

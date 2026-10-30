@@ -163,6 +163,7 @@ export interface RecordingPayload {
 }
 
 export interface RunContext {
+  access?: import('../codex-access').CodexAccess;
   projectId?: string;
   url?: string;
   tabId?: number;

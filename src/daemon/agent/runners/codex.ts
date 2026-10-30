@@ -41,6 +41,11 @@ const heldOverStdin = (settings: AgentSettings) => settings.transport !== 'exec'
  */
 const NO_SHELL = ['-c', 'features.shell_tool=false'];
 const NO_IMAGE_VIEWER = ['-c', 'features.view_image=false'];
+const FULL_ACCESS = ['-c', 'sandbox_mode="danger-full-access"', '-c', 'approval_policy="never"', '-c', 'features.shell_tool=true', '-c', 'features.view_image=true'];
+
+function requireFullAccessProject(context: StreamContext): void {
+  if (context.access === 'full' && !context.project) throw new Error('Full access requires a validated local project.');
+}
 
 /**
  * Codex features a browsing run has no use for, each of which costs a tool or a block of
@@ -194,6 +199,7 @@ export const codexRunner: Runner = {
    * fallback, and a thread either one began, the other resumes.
    */
   converse(context: StreamContext): Conversation | null {
+    requireFullAccessProject(context);
     const { settings, research } = context;
     if (!heldOverStdin(settings)) return null;
     return appServerTurn(context, {
@@ -202,9 +208,7 @@ export const codexRunner: Runner = {
         cwd: this.workspace('run'),
         args: [
           'app-server',
-          ...SANDBOX_CONFIG,
-          ...NO_SHELL,
-          ...NO_IMAGE_VIEWER,
+          ...(context.access === 'full' ? FULL_ACCESS : [...SANDBOX_CONFIG, ...NO_SHELL, ...NO_IMAGE_VIEWER]),
           ...QUIETED,
           ...searching(research),
           '-c',
@@ -224,13 +228,14 @@ export const codexRunner: Runner = {
   },
 
   stream(context: StreamContext): Plan {
+    requireFullAccessProject(context);
     if (context.project && !context.sessionId) throw new Error('A new project chat requires the Codex app-server transport. Update Codex and retry.');
     const { mcp, research } = context;
     const settings = withUserDefaults(context.settings);
     const server = `mcp_servers.${MCP_SERVER_NAME}`;
     const effort = effortOf(settings, this.efforts);
     return {
-      cwd: this.workspace('run'),
+      cwd: context.access === 'full' ? context.project!.cwd : this.workspace('run'),
       env: { BROWSENTIC_AGENT_RUN: context.runId },
       args: [
         'exec',
@@ -238,9 +243,7 @@ export const codexRunner: Runner = {
         '--json',
         WITHOUT_USER_CONFIG,
         ...contextWindowDefaults(),
-        ...SANDBOX,
-        ...NO_SHELL,
-        ...NO_IMAGE_VIEWER,
+        ...(context.access === 'full' ? [...FULL_ACCESS, '--skip-git-repo-check'] : [...SANDBOX, ...NO_SHELL, ...NO_IMAGE_VIEWER]),
         ...QUIETED,
         '-c',
         `${server}.command=${tomlString(mcp.command)}`,
@@ -271,7 +274,7 @@ export const codexRunner: Runner = {
     };
   },
 
-  reader(): StreamReader {
+  reader(context?: StreamContext): StreamReader {
     // Codex reports a message as deltas, as growing snapshots, or only once at the end — take all three
     // without saying anything twice.
     let said = '';
@@ -351,7 +354,10 @@ export const codexRunner: Runner = {
         case 'item.started': {
           const item = frame.item;
           const kind = kindOf(item);
-          if (kind && OFF_LIMITS[kind]) return sink.fail('AGENT_UNSAFE', stoppedFor(OFF_LIMITS[kind]));
+          if (kind && OFF_LIMITS[kind]) {
+            if (context?.access !== 'full') return sink.fail('AGENT_UNSAFE', stoppedFor(OFF_LIMITS[kind]));
+            if (item?.id) sink.tool(item.id, `codex.${kind}`);
+          }
           if (kind === 'web_search' && item?.id) return openSearch(item.id, sink);
           return;
         }
@@ -359,7 +365,10 @@ export const codexRunner: Runner = {
         case 'item.completed': {
           const item = frame.item;
           const kind = kindOf(item);
-          if (kind && OFF_LIMITS[kind]) return sink.fail('AGENT_UNSAFE', stoppedFor(OFF_LIMITS[kind]));
+          if (kind && OFF_LIMITS[kind]) {
+            if (context?.access !== 'full') return sink.fail('AGENT_UNSAFE', stoppedFor(OFF_LIMITS[kind]));
+            if (item?.id) sink.toolResult(item.id, true);
+          }
           if (kind === 'agent_message') return finish(item?.text ?? item?.message, sink);
           if (kind === 'web_search') return closeSearch(item?.id ?? randomUUID(), sink);
           return;

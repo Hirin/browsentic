@@ -687,8 +687,14 @@ export const CONTAINMENT: Record<AgentKind, Containment> = {
  *
  * Pure, so the harness can assert every runner's real plan without spawning anything.
  */
-export function vetPlan(kind: AgentKind, mode: SpawnMode, plan: SpawnPlan, home: string): string[] {
-  const rules = CONTAINMENT[kind][mode];
+export function vetPlan(kind: AgentKind, mode: SpawnMode, plan: SpawnPlan, home: string, fullAccess = false): string[] {
+  if (fullAccess && (kind !== 'codex' || mode === 'task')) return ['Full access is available only for an interactive Codex run.'];
+  const contained = CONTAINMENT[kind][mode];
+  const rules = fullAccess && contained ? alternativesOf(contained).map((rule) => ({ ...rule, required: rule.required.map((arg) => ({
+    'sandbox_mode="read-only"': 'sandbox_mode="danger-full-access"',
+    'features.shell_tool=false': 'features.shell_tool=true',
+    'features.view_image=false': 'features.view_image=true',
+  })[arg] ?? arg) })) : contained;
   const label = `${AGENTS[kind].label} (${mode})`;
   if (!rules) return [`${label} has no containment written for it.`];
   // A plan meets one way of being contained in full, or is held to the way it came closest to.
@@ -696,7 +702,9 @@ export function vetPlan(kind: AgentKind, mode: SpawnMode, plan: SpawnPlan, home:
   const problems = [...(shortfalls.find((shortfall) => shortfall.length === 0) ?? shortfalls.reduce((a, b) => (b.length < a.length ? b : a)))];
 
   const banned = [...FORBIDDEN, ...(CONTAINMENT[kind].forbidden ?? [])];
-  for (const arg of plan.args) {
+  const args = fullAccess && plan.args.includes('--') ? plan.args.slice(0, plan.args.indexOf('--')) : plan.args;
+  for (const arg of args) {
+    if (fullAccess && (arg === 'sandbox_mode="danger-full-access"' || arg === 'features.shell_tool=true' || arg === 'features.view_image=true' || arg.startsWith('developer_instructions='))) continue;
     if (banned.some((pattern) => pattern.test(arg))) {
       problems.push(`${label} is spawned with ${arg}, which disables its own containment.`);
     }
@@ -706,7 +714,7 @@ export function vetPlan(kind: AgentKind, mode: SpawnMode, plan: SpawnPlan, home:
     if (!isModelId(model)) problems.push(`${label} is spawned with the model ${JSON.stringify(model)}, which it could read as a flag.`);
   }
 
-  if (!within(plan.cwd, home)) problems.push(`${label} would run in ${plan.cwd}, which is outside ${home}.`);
+  if (!fullAccess && !within(plan.cwd, home)) problems.push(`${label} would run in ${plan.cwd}, which is outside ${home}.`);
 
   return problems;
 }

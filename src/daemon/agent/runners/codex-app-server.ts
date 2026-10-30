@@ -66,7 +66,7 @@ export function appServerTurn(context: StreamContext, turn: AppServerTurn): Conv
 
   const threadParams = (disabled: string[]) => ({
     cwd: turn.project?.cwd ?? turn.plan.cwd,
-    sandbox: 'read-only',
+    sandbox: context.access === 'full' ? 'danger-full-access' : 'read-only',
     approvalPolicy: 'never',
     developerInstructions: turn.developerInstructions,
     ...(turn.settings.model ? { model: turn.settings.model } : {}),
@@ -158,7 +158,14 @@ export function appServerTurn(context: StreamContext, turn: AppServerTurn): Conv
   const onItem = (item: Item | undefined, finished: boolean, sink: StreamSink) => {
     const kind = item?.type;
     if (!kind) return;
-    if (OFF_LIMITS[kind]) return sink.fail('AGENT_UNSAFE', turn.stoppedFor(OFF_LIMITS[kind]));
+    if (OFF_LIMITS[kind]) {
+      if (context.access !== 'full' || kind === 'mcpToolCall') return sink.fail('AGENT_UNSAFE', turn.stoppedFor(OFF_LIMITS[kind]));
+      if (item?.id) {
+        if (finished) sink.toolResult(item.id, true);
+        else sink.tool(item.id, `codex.${kind}`);
+      }
+      return;
+    }
     if (kind === 'webSearch' && item.id) {
       if (!searches.has(item.id)) {
         searches.add(item.id);

@@ -27,10 +27,10 @@ const host = () => {
 };
 
 /** A conversation fed lines by hand: what it wrote to Codex, and what it told the run. */
-function hold({ bin = 'codex', sessionId = null as string | null, transport = undefined as string | undefined, project = undefined as { id: string; cwd: string } | undefined } = {}) {
+function hold({ bin = 'codex', sessionId = null as string | null, transport = undefined as string | undefined, project = undefined as { id: string; cwd: string } | undefined, access = undefined as 'full' | 'review' | undefined } = {}) {
   const tools = host();
   const conversation = codexRunner.converse?.(
-    streamContext({ bin, transport }, { sessionId, project, systemPrompt: 'You are Browsentic.', tools: async () => tools }),
+    streamContext({ bin, transport }, { sessionId, project, access, systemPrompt: 'You are Browsentic.', tools: async () => tools }),
   ) as Conversation;
   const written: Record<string, unknown>[] = [];
   const calls: unknown[][] = [];
@@ -63,6 +63,21 @@ const response = (id: number) => recorded.find((line) => JSON.parse(line).id ===
 const sent = (written: Record<string, unknown>[], method: string) => written.find((message) => message.method === method);
 
 describe('the handshake', () => {
+  test('full access sets native permissions and accepts shell/file events; a later review turn is read-only', async () => {
+    const project = { id: '01a18055-91a3-7810-8bd7-3a837d9b3f6c', cwd: '/approved/project' };
+    const full = hold({ bin: 'codex-full', access: 'full', project });
+    await full.feed(response(1), response(2), response(3),
+      { method: 'item/started', params: { item: { id: 'command', type: 'commandExecution' } } },
+      { method: 'item/completed', params: { item: { id: 'command', type: 'commandExecution' } } });
+    expect(sent(full.written, 'thread/start')?.params).toMatchObject({ sandbox: 'danger-full-access', approvalPolicy: 'never' });
+    expect(full.calls).toContainEqual(['tool', 'command', 'codex.commandExecution']);
+    expect(full.calls.some(([signal]) => signal === 'fail')).toBe(false);
+    await full.feed({ method: 'item/started', params: { item: { id: 'external', type: 'mcpToolCall' } } });
+    expect(full.calls).toContainEqual(expect.arrayContaining(['fail', 'AGENT_UNSAFE']));
+    const reviewed = hold({ bin: 'codex-review-after-full', sessionId: 'shared-thread', project });
+    await reviewed.feed(response(1), response(2));
+    expect(sent(reviewed.written, 'thread/resume')?.params).toMatchObject({ sandbox: 'read-only', approvalPolicy: 'never' });
+  });
   test('a selected project supplies native identity and cwd, while project MCPs remain disabled', async () => {
     const project = { id: '01a18055-91a3-7810-8bd7-3a837d9b3f6c', cwd: '/approved/project' };
     const { written, feed } = hold({ bin: 'codex-project', project });
