@@ -26,6 +26,8 @@ interface Item {
   id?: string;
   type?: string;
   text?: string;
+  status?: string;
+  exitCode?: number | null;
 }
 
 interface Usage {
@@ -161,7 +163,7 @@ export function appServerTurn(context: StreamContext, turn: AppServerTurn): Conv
     if (OFF_LIMITS[kind]) {
       if (context.access !== 'full' || kind === 'mcpToolCall') return sink.fail('AGENT_UNSAFE', turn.stoppedFor(OFF_LIMITS[kind]));
       if (item?.id) {
-        if (finished) sink.toolResult(item.id, true);
+        if (finished) sink.toolResult(item.id, !['failed', 'declined', 'interrupted'].includes(item.status ?? '') && (item.exitCode == null || item.exitCode === 0));
         else sink.tool(item.id, `codex.${kind}`);
       }
       return;

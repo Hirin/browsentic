@@ -43,12 +43,13 @@ describe('a streamed run', () => {
     const context = streamContext(settings, { access: 'full', project: { id: 'project-id', cwd: '/approved/project' } });
     const lines = [
       { type: 'item.started', item: { id: 'shell', type: 'command_execution' } },
-      { type: 'item.completed', item: { id: 'shell', type: 'command_execution' } },
+      { type: 'item.completed', item: { id: 'shell', type: 'command_execution', exit_code: 1, status: 'failed' } },
       { type: 'item.completed', item: { id: 'patch', type: 'file_change' } },
     ].map((line) => JSON.stringify(line));
     const full = readThrough({ ...codexRunner, reader: () => codexRunner.reader(context) }, lines);
     expect(full.some(([signal]) => signal === 'fail')).toBe(false);
     expect(full).toContainEqual(['tool', 'shell', 'codex.command_execution']);
+    expect(full).toContainEqual(['toolResult', 'shell', false]);
     expect(readThrough(codexRunner, lines).some(([signal]) => signal === 'fail')).toBe(true);
   });
   test('full access resumes in the project with native tools and still excludes user MCP configuration', () => {

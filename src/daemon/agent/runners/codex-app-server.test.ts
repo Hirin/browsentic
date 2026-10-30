@@ -72,6 +72,8 @@ describe('the handshake', () => {
     expect(sent(full.written, 'thread/start')?.params).toMatchObject({ sandbox: 'danger-full-access', approvalPolicy: 'never' });
     expect(full.calls).toContainEqual(['tool', 'command', 'codex.commandExecution']);
     expect(full.calls.some(([signal]) => signal === 'fail')).toBe(false);
+    await full.feed({ method: 'item/completed', params: { item: { id: 'failed-command', type: 'commandExecution', status: 'failed', exitCode: 1 } } });
+    expect(full.calls).toContainEqual(['toolResult', 'failed-command', false]);
     await full.feed({ method: 'item/started', params: { item: { id: 'external', type: 'mcpToolCall' } } });
     expect(full.calls).toContainEqual(expect.arrayContaining(['fail', 'AGENT_UNSAFE']));
     const reviewed = hold({ bin: 'codex-review-after-full', sessionId: 'shared-thread', project });

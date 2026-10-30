@@ -130,6 +130,8 @@ interface Item {
   message?: string;
   query?: string;
   command?: string;
+  status?: string;
+  exit_code?: number | null;
 }
 
 /**
@@ -367,7 +369,7 @@ export const codexRunner: Runner = {
           const kind = kindOf(item);
           if (kind && OFF_LIMITS[kind]) {
             if (context?.access !== 'full') return sink.fail('AGENT_UNSAFE', stoppedFor(OFF_LIMITS[kind]));
-            if (item?.id) sink.toolResult(item.id, true);
+            if (item?.id) sink.toolResult(item.id, !['failed', 'declined', 'interrupted'].includes(item.status ?? '') && (item.exit_code == null || item.exit_code === 0));
           }
           if (kind === 'agent_message') return finish(item?.text ?? item?.message, sink);
           if (kind === 'web_search') return closeSearch(item?.id ?? randomUUID(), sink);
