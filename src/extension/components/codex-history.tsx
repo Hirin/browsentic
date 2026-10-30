@@ -42,7 +42,7 @@ export function CodexHistoryPanel({ connected, busy, onOpen, projectId }: { conn
       await putSession({ id, agent: 'codex', agentSessionId: thread.id, ...(result.thread?.projectId ? { projectId: result.thread.projectId } : {}), turns: messages.filter((m) => m.role === 'user').length,
         createdAt: thread.updatedAt, updatedAt: thread.updatedAt }, [
         ...messages.map((m) => ({ kind: m.role, id: crypto.randomUUID(), text: m.text })),
-        { kind: 'notice', id: crypto.randomUUID(), tone: 'info', text: result.thread?.projectId ? `Project conversation: ${result.thread.cwd ?? 'saved workspace'}. File reads are scoped to the project; edits need approval.` : 'Continuing this local Codex conversation with browser tools.' },
+        { kind: 'notice', id: crypto.randomUUID(), tone: 'info', text: result.thread?.projectId ? `Project conversation: ${result.thread.cwd ?? 'saved workspace'}. Review edits scopes file tools to the project and asks before writing; Full access follows the current Permissions picker.` : 'Continuing this local Codex conversation with browser tools.' },
       ]);
       await updateSessionMeta(id, { title: thread.title });
       await browser.storage.local.set({ [CODEX_PROJECT_KEY]: result.thread?.projectId ?? null });

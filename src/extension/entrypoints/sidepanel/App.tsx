@@ -75,7 +75,8 @@ export default function App() {
   const [access, setAccess] = useState<CodexAccess>('review');
   const run = useRun(undefined, access);
   const [projectId, selectProject] = useCodexProject();
-  useEffect(() => { setAccess('review'); }, [projectId]);
+  const activeProjectId = run.sessions.find((session) => session.sessionId === run.sessionId)?.projectId ?? projectId;
+  useEffect(() => { setAccess('review'); }, [activeProjectId]);
   const star = useStarNudge(run.completed, run.sessionId, run.running);
   const update = useWaitingUpdate();
   const [voiceEnabled, setVoiceEnabled] = useVoiceEnabled();
@@ -361,7 +362,7 @@ export default function App() {
           <PanelRightClose className="size-3.5" />
         </Button>
       </header>
-      {!onPhone && <CodexProjectPicker access={access} onAccess={setAccess} onSync={run.sessions.some((session) => session.sessionId === run.sessionId && session.agent === 'codex' && session.agentSessionId) ? run.sync : undefined} connected={connected} busy={run.running} value={projectId} onSelect={(id) => { setAccess('review'); run.clear(); void selectProject(id); open('history'); }} />}
+      {!onPhone && <CodexProjectPicker access={access} onAccess={setAccess} onSync={run.sessions.some((session) => session.sessionId === run.sessionId && session.agent === 'codex' && session.agentSessionId) ? run.sync : undefined} connected={connected} busy={run.running} value={activeProjectId} onSelect={(id) => { setAccess('review'); run.clear(); void selectProject(id); open('history'); }} />}
 
       {connectionOpen && <ConnectionSheet onClose={() => setConnectionOpen(false)} />}
 
@@ -419,7 +420,7 @@ export default function App() {
             )
           ) : tab === 'history' ? (
             <>
-            <CodexHistoryPanel projectId={projectId} connected={connected} busy={run.running} onOpen={openSession} />
+            <CodexHistoryPanel projectId={activeProjectId} connected={connected} busy={run.running} onOpen={openSession} />
             <SessionList
               sessions={sessions}
               currentId={run.sessionId ?? undefined}
