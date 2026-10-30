@@ -14,6 +14,28 @@ extension. **Allow** writes only that prepared change. Approval is never remembe
 file edits. If the file changes before approval, the agent must read it and propose a new edit.
 Changing projects starts a fresh browser chat; an existing chat keeps its own project.
 
+## Full access
+
+The **Permissions** picker below the project offers **Review edits** (the default) and **Full
+access**. Full access enables native Codex file tools, shell commands and network access without
+per-action approval. The project is the initial working folder, not a filesystem boundary: native
+tools can access files outside it under the current OS account. Workspace patches run immediately
+and browser actions skip confirmation, while actions explicitly denied by browser policy remain
+blocked. The scoped text tools retain their path, file-size and revision checks; native Codex tools
+provide broader access. External MCP servers and apps/plugins stay disabled in the runner.
+
+Select Full access explicitly in the side panel before sending a message. It applies to that turn,
+does not modify global Codex settings. The extension does not restore the permission choice from
+chat history, and scheduled, timer, phone or in-page runs cannot inherit it. The picker resets to Review edits when the panel reopens or its
+project changes. Switching back applies read-only native permissions on the next turn, even in a
+chat previously run with Full access; project edits then require approval again. A running turn
+keeps the mode it started with, and the picker is disabled until it finishes or is cancelled.
+
+The following scoped-file and approval boundaries describe **Review edits**. Prompt injection
+still matters in Full access: the model has broad local capabilities, so approving that mode gives
+untrusted page or repository text more opportunity to affect the machine if the model follows it.
+See [OpenAI's permissions documentation](https://learn.chatgpt.com/docs/sandboxing).
+
 Files are the same files on disk, so approved changes are immediately available to local tools.
 Chats share their persisted native identity. **Sync chat** refreshes the text saved by another
 Codex client; the extension also refreshes an idle Codex chat when its window regains focus.
