@@ -48,6 +48,7 @@ import { closeSidePanel } from '@/lib/bridge/side-panel';
 import { startHandsFree } from '@/lib/bridge/panel-view';
 import { usePanelCollapsed, usePanelTab } from '@/lib/bridge/use-panel-view';
 import { useRun } from '@/lib/bridge/use-run';
+import type { CodexAccess } from '@/lib/codex-access';
 import { useStarNudge } from '@/lib/bridge/use-star-nudge';
 import { useStoredFiles } from '@/lib/bridge/use-stored-files';
 import { useStoredRecordings } from '@/lib/bridge/use-stored-recordings';
@@ -71,8 +72,10 @@ const PHONE_HIDDEN_TABS: PanelTab[] = ['recordings', 'tasks'];
 export default function App() {
   const daemon = useDaemonState();
   useAutoPair(daemon);
-  const run = useRun();
+  const [access, setAccess] = useState<CodexAccess>('review');
+  const run = useRun(undefined, access);
   const [projectId, selectProject] = useCodexProject();
+  useEffect(() => { setAccess('review'); }, [projectId]);
   const star = useStarNudge(run.completed, run.sessionId, run.running);
   const update = useWaitingUpdate();
   const [voiceEnabled, setVoiceEnabled] = useVoiceEnabled();
@@ -89,6 +92,7 @@ export default function App() {
   const tabUrl = useActiveTabUrl();
   const phone = useMirroredPhone();
   const onPhone = phone !== null;
+  useEffect(() => { if (onPhone) setAccess('review'); }, [onPhone]);
   const phoneSwitch = usePhoneSwitch();
   const androidOption = useMemo(
     () => (import.meta.env.FIREFOX ? undefined : { on: phoneSwitch.on, problem: phoneSwitch.problem }),
@@ -357,7 +361,7 @@ export default function App() {
           <PanelRightClose className="size-3.5" />
         </Button>
       </header>
-      <CodexProjectPicker onSync={run.sessions.some((session) => session.sessionId === run.sessionId && session.agent === 'codex' && session.agentSessionId) ? run.sync : undefined} connected={connected} busy={run.running} value={projectId} onSelect={(id) => { run.clear(); void selectProject(id); open('history'); }} />
+      {!onPhone && <CodexProjectPicker access={access} onAccess={setAccess} onSync={run.sessions.some((session) => session.sessionId === run.sessionId && session.agent === 'codex' && session.agentSessionId) ? run.sync : undefined} connected={connected} busy={run.running} value={projectId} onSelect={(id) => { setAccess('review'); run.clear(); void selectProject(id); open('history'); }} />}
 
       {connectionOpen && <ConnectionSheet onClose={() => setConnectionOpen(false)} />}
 

@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { BRIDGE_CHANNEL, type ActionResult } from '@/lib/actions/protocol';
 import type { CodexHistory, CodexProject } from '@/lib/codex-history';
+import type { CodexAccess } from '@/lib/codex-access';
 
-export function CodexProjectPicker({ connected, busy, value, onSelect, onSync }: {
+export function CodexProjectPicker({ connected, busy, value, onSelect, onSync, access, onAccess }: {
   connected: boolean;
   busy: boolean;
   value: string | null;
   onSelect: (id: string | null) => void;
   onSync?: () => void;
+  access: CodexAccess;
+  onAccess: (access: CodexAccess) => void;
 }) {
   const [projects, setProjects] = useState<CodexProject[]>([]);
   const [error, setError] = useState('');
@@ -49,7 +52,16 @@ export function CodexProjectPicker({ connected, busy, value, onSelect, onSync }:
       {value && !chosen && <option value={value}>Saved project</option>}
       {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
     </select>
-    {chosen && <p className="mt-1 truncate text-[10px] text-ink-faint" title={chosen.roots.join('\n')}>{chosen.roots[0]} · edits need approval</p>}
+    {chosen && <p className="mt-1 truncate text-[10px] text-ink-faint" title={chosen.roots.join('\n')}>{chosen.roots[0]}</p>}
+    <label htmlFor="codex-access" className="mt-2 block text-ink-faint">Permissions</label>
+    <select id="codex-access" className="mt-1 w-full rounded-lg border border-line bg-ground px-2 py-1.5 text-ink"
+      value={access} disabled={!connected || busy || !value} onChange={(event) => onAccess(event.target.value === 'full' ? 'full' : 'review')}>
+      <option value="review">Review edits</option>
+      <option value="full">Full access</option>
+    </select>
+    <p className={`mt-1 text-[10px] ${access === 'full' ? 'text-amber-600 dark:text-amber-400' : 'text-ink-faint'}`}>
+      {access === 'full' ? 'Can edit files outside this project, run commands and use the network without approval. Browser actions also skip confirmation; blocked actions stay blocked.' : 'Project edits need approval. Shell access is disabled.'}
+    </p>
     {error && <p role="alert" className="mt-1 text-destructive">{error}</p>}
   </div>;
 }

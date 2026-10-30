@@ -13,6 +13,7 @@ import { useActiveTab, type ActiveTab } from './use-active-tab';
 import { useTabSessions } from './use-tab-sessions';
 import type { TabSession } from './tab-sessions';
 import { useCodexProject } from './use-codex-project';
+import type { CodexAccess } from '@/lib/codex-access';
 
 const RECONNECT_MS = 1_000;
 
@@ -76,7 +77,7 @@ export interface Run {
 }
 
 /** Follows the tab in front, unless given a tab of its own to stay on. */
-export function useRun(pinned?: ActiveTab): Run {
+export function useRun(pinned?: ActiveTab, access: CodexAccess = 'review'): Run {
   const [drafts, setDrafts] = useState<Record<string, SiteMapDraft>>({});
   const [recording, setRecording] = useState<RecordingState | null>(null);
   const [monitors, setMonitors] = useState<MonitorState[]>([]);
@@ -222,10 +223,11 @@ export function useRun(pinned?: ActiveTab): Run {
         focus: opts?.focus,
         liveTools: opts?.liveTools,
         projectId: displayed?.projectId ?? selectedProjectId ?? undefined,
+        access,
         tab: { tabId: tab.tabId, url: tab.url, windowId: tab.windowId, title: tab.title },
       });
     },
-    [post, tab, displayed?.projectId, selectedProjectId],
+    [post, tab, displayed?.projectId, selectedProjectId, access],
   );
 
   const sync = useCallback(() => {

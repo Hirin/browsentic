@@ -1,5 +1,6 @@
 import { readCodexHistory } from './socket';
 import { CODEX_PROJECT_KEY } from '@/lib/codex-history';
+import { fullAccessAuthorized, validCodexAccess, type CodexAccess } from '@/lib/codex-access';
 import { WORKSPACE_PATCH, workspaceUiSender } from '@/lib/workspace-tools';
 import { browser, type Browser } from 'wxt/browser';
 import {
@@ -116,7 +117,7 @@ const MAX_EXTERNAL_ITEMS = 100;
 const TAB_LOAD_WAIT_MS = 15_000;
 
 export type RunCommand =
-  | { op: 'instruct'; text: string; tab: TabAnchor; agentSkillId?: string; focus?: FocusedElement; liveTools?: boolean; projectId?: string }
+  | { op: 'instruct'; text: string; tab: TabAnchor; agentSkillId?: string; focus?: FocusedElement; liveTools?: boolean; projectId?: string; access?: CodexAccess }
   | { op: 'cancel'; sessionId: string }
   | { op: 'decision'; sessionId: string; toolId: string; allow: boolean; remember?: boolean }
   | { op: 'endSession'; sessionId: string }
@@ -320,7 +321,7 @@ export function runCommand(command: RunCommand): void {
 function handle(command: RunCommand, trustedUi = false): void {
   switch (command.op) {
     case 'instruct':
-      void serialized(() => instruct(command.text, command.tab, command.agentSkillId, command.focus, command.liveTools, command.projectId, trustedUi));
+      void serialized(() => instruct(command.text, command.tab, command.agentSkillId, command.focus, command.liveTools, command.projectId, trustedUi, command.access));
       return;
     case 'cancel':
       void serialized(() => stopRun(command.sessionId));
@@ -582,7 +583,9 @@ async function instruct(
   liveTools?: boolean,
   projectId?: string,
   trustedUi = false,
+  access: CodexAccess = 'review',
 ): Promise<void> {
+  if (!validCodexAccess(access) || access === 'full' && !trustedUi) return;
   const ensured = await ensureConversation(anchor);
   if (!ensured.ok) {
     broadcast({
@@ -608,6 +611,10 @@ async function instruct(
     ensured.session.projectId = projectId;
     ensured.session.agent = 'codex';
   }
+  if (access === 'full' && !fullAccessAuthorized(access, trustedUi, ensured.session.projectId)) {
+    await append(sessionId, notice('error', 'Choose a local Codex project before using Full access.'));
+    return;
+  }
   if (isContextCommand(text)) {
     const breakdown = await contextBreakdown(ensured.session, await bufferFor(sessionId));
     await append(sessionId, { kind: 'user', id: nextId(), text: CONTEXT_COMMAND });
@@ -615,7 +622,7 @@ async function instruct(
     return;
   }
 
-  const outcome = await startTurn(ensured.session, text, { agentSkillId, focus, liveTools, fastPath: true });
+  const outcome = await startTurn(ensured.session, text, { agentSkillId, focus, liveTools, access, fastPath: access !== 'full' });
   if (outcome === 'busy') {
     await append(
       sessionId,
@@ -630,9 +637,9 @@ type TurnOutcome = 'started' | 'local' | 'busy' | 'offline';
 async function startTurn(
   session: TabSession,
   text: string,
-  options: { agentSkillId?: string; focus?: FocusedElement; liveTools?: boolean; fastPath: boolean; task?: TaskContext },
+  options: { agentSkillId?: string; focus?: FocusedElement; liveTools?: boolean; fastPath: boolean; task?: TaskContext; access?: CodexAccess },
 ): Promise<TurnOutcome> {
-  const { agentSkillId, focus, liveTools, fastPath, task } = options;
+  const { agentSkillId, focus, liveTools, fastPath, task, access = 'review' } = options;
   const { sessionId } = session;
   if (session.runId || busy.has(sessionId)) return 'busy';
 
@@ -657,6 +664,7 @@ async function startTurn(
       agent: session.agent,
       agentSessionId: session.agentSessionId,
       projectId: session.projectId,
+      access,
       agentSkillId,
       focus: hidden ? undefined : focus,
       liveTools,
